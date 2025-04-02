@@ -8,11 +8,15 @@ import logging
 DEBUG = True
 
 HTTP_PORT = 8888
-HTTP_ADDRESS = '0.0.0.0'
+HTTP_ADDRESS = "0.0.0.0"
 
 #
 # Set logging level
 #
 logging.getLogger().setLevel(logging.DEBUG)
 
-JOB_CLASS_PACKAGES = ['simple_scheduler.jobs']
+# Specify the package that contains job classes
+JOB_CLASS_PACKAGES = ["simple_scheduler.jobs"]
+
+# Exclude specific jobs that require additional dependencies
+EXCLUDE_JOB_CLASS_PACKAGES = ["apns_job"]

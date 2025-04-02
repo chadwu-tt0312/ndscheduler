@@ -34,26 +34,41 @@ def get_all_available_jobs():
     from ndscheduler.corescheduler import job
 
     results = []
+    exclude_job_class = getattr(settings, "EXCLUDE_JOB_CLASS_PACKAGES", [])
+
     for job_class_package in settings.JOB_CLASS_PACKAGES:
         try:
             package = importlib.import_module(job_class_package)
         except ImportError:
-            logger.warn('Cannot import %s. Ignore it for now.' % job_class_package)
+            logger.warn("Cannot import %s. Ignore it for now." % job_class_package)
             continue
 
         for dir_path in package.__path__:
-            files = glob.glob(os.path.join(dir_path, '*.py'))
+            files = glob.glob(os.path.join(dir_path, "*.py"))
             for file in files:
                 filename = os.path.basename(file)
-                if filename == '__init__.py':
+                if filename == "__init__.py":
                     continue
+
                 module_name = filename[:-3]
-                job_module = importlib.import_module('%s.%s' % (job_class_package, module_name))
-                for property in dir(job_module):
-                    module_property = getattr(job_module, property)
-                    try:
-                        if issubclass(module_property, job.JobBase):
-                            results.append(module_property.meta_info())
-                    except TypeError:
-                        pass
+                if module_name in exclude_job_class:
+                    logger.debug("Skipping excluded job class: %s" % module_name)
+                    continue
+
+                try:
+                    job_module = importlib.import_module("%s.%s" % (job_class_package, module_name))
+                    for property in dir(job_module):
+                        module_property = getattr(job_module, property)
+                        try:
+                            if issubclass(module_property, job.JobBase):
+                                results.append(module_property.meta_info())
+                                logger.debug("add job class: %s" % module_name)
+                        except TypeError:
+                            pass
+                except ImportError:
+                    logger.warn(
+                        "Cannot import %s.%s. Ignore it for now." % (job_class_package, module_name)
+                    )
+                    continue
+
     return results
