@@ -6,10 +6,13 @@ import socket
 import sys
 import traceback
 import uuid
+import logging
 
 import pytz
 
 from ndscheduler.corescheduler import constants
+
+logger = logging.getLogger(__name__)
 
 
 def import_from_path(path):
@@ -19,8 +22,8 @@ def import_from_path(path):
     :rtype: class
     """
 
-    components = path.split('.')
-    module = __import__('.'.join(components[:-1]))
+    components = path.split(".")
+    module = __import__(".".join(components[:-1]))
     for comp in components[1:-1]:
         module = getattr(module, comp)
     return getattr(module, components[-1])
@@ -49,7 +52,7 @@ def get_job_args(job):
     :return: task arguments
     :rtype: list of str
     """
-    return job.args[constants.JOB_ARGS:]
+    return job.args[constants.JOB_ARGS :]
 
 
 def get_job_kwargs(job):
@@ -68,12 +71,13 @@ def get_cron_strings(job):
     :rtype: dict
     """
     return {
-        'month': str(job.trigger.fields[1]),
-        'day': str(job.trigger.fields[2]),
-        'week': str(job.trigger.fields[3]),
-        'day_of_week': str(job.trigger.fields[4]),
-        'hour': str(job.trigger.fields[5]),
-        'minute': str(job.trigger.fields[6])}
+        "month": str(job.trigger.fields[1]),
+        "day": str(job.trigger.fields[2]),
+        "week": str(job.trigger.fields[3]),
+        "day_of_week": str(job.trigger.fields[4]),
+        "hour": str(job.trigger.fields[5]),
+        "minute": str(job.trigger.fields[6]),
+    }
 
 
 def generate_uuid():
@@ -89,7 +93,7 @@ def get_stacktrace():
     """Returns the full stack trace."""
 
     type_, value_, traceback_ = sys.exc_info()
-    return ''.join(traceback.format_exception(type_, value_, traceback_))
+    return "".join(traceback.format_exception(type_, value_, traceback_))
 
 
 def get_hostname():
@@ -105,3 +109,23 @@ def get_pid():
 def get_datastore_instance(datastore_class_path, db_config=None, db_tablenames=None):
     datastore_class = import_from_path(datastore_class_path)
     return datastore_class.get_instance(db_config, db_tablenames)
+
+
+def get_job_class(job_class_string):
+    """從字串路徑導入任務類別。
+
+    Args:
+        job_class_string (str): 任務類別的完整路徑，例如：'simple_scheduler.jobs.sample_job.AwesomeJob'
+
+    Returns:
+        class: 任務類別
+        None: 如果導入失敗
+    """
+    try:
+        return import_from_path(job_class_string)
+    except (ImportError, AttributeError) as e:
+        logger.error(f"導入任務類別失敗 {job_class_string}: {str(e)}", exc_info=True)
+        return None
+    except Exception as e:
+        logger.error(f"導入任務類別時發生未預期的錯誤 {job_class_string}: {str(e)}", exc_info=True)
+        return None

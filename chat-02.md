@@ -394,7 +394,7 @@ cd /d/_Code/_GitHub/ndscheduler && export NDSCHEDULER_SETTINGS_MODULE=simple_sch
 
 ---
 
-## q-17v (gemini-2.5-pro-exp-03-25)
+## q-17 (gemini-2.5-pro-exp-03-25)
 
 遺忘上一個問題.
 目前環境為 python 3.9。因為部分程式使用的語法或者功能不支援新版。
@@ -1317,27 +1317,3 @@ pytest tests/integration/test_server.py -v
 5. 錯誤處理是否正確
 
 您要我現在運行這些測試嗎？或者您想要添加更多的測試案例？
-
----
-
-## q-29
-
----
-
-## answer-29
-
----
-
-## q-30
-
----
-
-## answer-30
-
----
-
-## q-9
-
----
-
-## answer-9

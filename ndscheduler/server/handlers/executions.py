@@ -19,34 +19,40 @@ class Handler(base.BaseHandler):
 
         This is a blocking operation.
 
-        :param str execution_id: Execution id.
+        Args:
+            execution_id (str): Execution id.
 
-        :return: If success, a dictionary of a job execution info; otherwise, a dictionary
-            of error message.
-        :rtype: dict
+        Returns:
+            dict: If success, a dictionary of a job execution info; otherwise, a dictionary
+                of error message.
         """
         execution = self.datastore.get_execution(execution_id)
         if not execution:
             self.set_status(400)
-            return {'error': 'Execution not found: %s' % execution_id}
+            return {"error": "Execution not found: %s" % execution_id}
         return execution
 
     @tornado.concurrent.run_on_executor
     def get_execution(self, execution_id):
         """Wrapper for _get_execution() to run on threaded executor.
 
-        :param str execution_id: Execution id.
+        Args:
+            execution_id (str): Execution id.
 
-        :return: Job execution info.
-        :rtype: str
+        Returns:
+            dict: Job execution info.
         """
         return self._get_execution(execution_id)
 
-    @tornado.gen.engine
+    @tornado.gen.coroutine
     def get_execution_yield(self, execution_id):
-        """Wrapper for get_execution to run in async mode
+        """Wrapper for get_execution to run in async mode.
 
-        :param str execution_id: Execution id.
+        Args:
+            execution_id (str): Execution id.
+
+        Returns:
+            dict: Job execution info.
         """
         return_json = yield self.get_execution(execution_id)
         self.finish(return_json)
@@ -56,14 +62,13 @@ class Handler(base.BaseHandler):
 
         This is a blocking operation.
 
-        :return: executions info.
-        :rtype: dict
+        Returns:
+            dict: Executions info.
         """
-
         now = datetime.utcnow()
-        time_range_end = self.get_argument('time_range_end', now.isoformat())
+        time_range_end = self.get_argument("time_range_end", now.isoformat())
         ten_minutes_ago = now - timedelta(minutes=10)
-        time_range_start = self.get_argument('time_range_start', ten_minutes_ago.isoformat())
+        time_range_start = self.get_argument("time_range_start", ten_minutes_ago.isoformat())
 
         executions = self.datastore.get_executions(time_range_start, time_range_end)
         return executions
@@ -72,20 +77,23 @@ class Handler(base.BaseHandler):
     def get_executions(self):
         """Wrapper for _get_executions to run on threaded executor.
 
-        :return: executions info.
-        :rtype: dict
+        Returns:
+            dict: Executions info.
         """
         return self._get_executions()
 
-    @tornado.gen.engine
+    @tornado.gen.coroutine
     def get_executions_yield(self):
-        """Wrapper for get_executions to run in async mode."""
+        """Wrapper for get_executions to run in async mode.
+
+        Returns:
+            dict: Executions info.
+        """
         return_json = yield self.get_executions()
         self.finish(return_json)
 
     @tornado.web.removeslash
-    @tornado.web.asynchronous
-    @tornado.gen.engine
+    @tornado.gen.coroutine
     def get(self, execution_id=None):
         """Returns a execution or multiple executions.
 
@@ -99,66 +107,79 @@ class Handler(base.BaseHandler):
 
             GET /api/v1/executions/{execution_id}  (when execution_id != None)
 
-        :param str execution_id: Execution id.
+        Args:
+            execution_id (str, optional): Execution id.
         """
         if execution_id is None:
-            self.get_executions_yield()
+            yield self.get_executions_yield()
         else:
-            self.get_execution_yield(execution_id)
+            yield self.get_execution_yield(execution_id)
 
     def _run_job(self, job_id):
         """Kicks off a job.
 
-        :param str job_id: Job id.
+        Args:
+            job_id (str): Job id.
 
-        :return: A dictionary with the only field of execution_id.
-        :rtype: dict
+        Returns:
+            dict: A dictionary with the only field of execution_id.
         """
-
         job = self.scheduler_manager.get_job(job_id)
         if not job:
             self.set_status(400)
-            return {'error': 'Job not found: %s' % job_id}
+            return {"error": "Job not found: %s" % job_id}
         job_name = utils.get_job_name(job)
         args = utils.get_job_args(job)
         kwargs = job.kwargs
         scheduler = utils.import_from_path(settings.SCHEDULER_CLASS)
-        execution_id = scheduler.run_job(job_name, job_id, settings.DATABASE_CLASS,
-                                         self.datastore.db_config, self.datastore.table_names,
-                                         *args, **kwargs)
+        execution_id = scheduler.run_job(
+            job_name,
+            job_id,
+            settings.DATABASE_CLASS,
+            self.datastore.db_config,
+            self.datastore.table_names,
+            *args,
+            **kwargs
+        )
 
         # Audit log
-        self.datastore.add_audit_log(job_id, job.name, constants.AUDIT_LOG_CUSTOM_RUN,
-                                     user=self.username, description=execution_id)
+        self.datastore.add_audit_log(
+            job_id,
+            job.name,
+            constants.AUDIT_LOG_CUSTOM_RUN,
+            user=self.username,
+            description=execution_id,
+        )
 
-        response = {
-            'execution_id': execution_id}
-        return response
+        return {"execution_id": execution_id}
 
     @tornado.concurrent.run_on_executor
     def run_job(self, job_id):
         """Wrapper for _run_job() to run on threaded executor.
 
-        :param str job_id: String for a job id.
+        Args:
+            job_id (str): String for a job id.
 
-        :return: A dictionary with the only field of execution_id.
-        :rtype: dict
+        Returns:
+            dict: A dictionary with the only field of execution_id.
         """
         return self._run_job(job_id)
 
-    @tornado.gen.engine
+    @tornado.gen.coroutine
     def run_job_yield(self, job_id):
         """Wrapper for run_job to run in async mode.
 
-        :param str job_id:
-        :return:
+        Args:
+            job_id (str): Job id.
+
+        Returns:
+            dict: A dictionary with the only field of execution_id.
         """
         return_json = yield self.run_job(job_id)
         self.finish(return_json)
 
     @tornado.web.removeslash
-    @tornado.web.asynchronous
-    @tornado.gen.engine
+    @tornado.gen.coroutine
     def post(self, job_id):
         """Runs a job.
 
@@ -166,9 +187,9 @@ class Handler(base.BaseHandler):
             POST /api/v1/executions
 
         Args:
-            job_id: String for job id.
+            job_id (str): String for job id.
         """
-        self.run_job_yield(job_id)
+        yield self.run_job_yield(job_id)
 
     @tornado.web.removeslash
     def delete(self, job_id):
@@ -176,5 +197,8 @@ class Handler(base.BaseHandler):
 
         Handles an endpoint:
             POST /api/v1/executions
+
+        Args:
+            job_id (str): Job id.
         """
-        raise tornado.web.HTTPError(501, 'Not implemented yet.')
+        raise tornado.web.HTTPError(501, "Not implemented yet.")

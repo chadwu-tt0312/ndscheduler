@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 class SchedulerServer:
 
-    VERSION = 'v1'
+    VERSION = "v1"
 
     singleton = None
 
@@ -35,20 +35,19 @@ class SchedulerServer:
             debug=settings.DEBUG,
             static_path=settings.STATIC_DIR_PATH,
             template_path=settings.TEMPLATE_DIR_PATH,
-            scheduler_manager=self.scheduler_manager
+            scheduler_manager=self.scheduler_manager,
         )
 
         # Setup server
         URLS = [
             # Index page
-            (r'/', index.Handler),
-
+            (r"/", index.Handler),
             # APIs
-            (r'/api/%s/jobs' % self.VERSION, jobs.Handler),
-            (r'/api/%s/jobs/(.*)' % self.VERSION, jobs.Handler),
-            (r'/api/%s/executions' % self.VERSION, executions.Handler),
-            (r'/api/%s/executions/(.*)' % self.VERSION, executions.Handler),
-            (r'/api/%s/logs' % self.VERSION, audit_logs.Handler),
+            (r"/api/%s/jobs" % self.VERSION, jobs.Handler),
+            (r"/api/%s/jobs/(.*)" % self.VERSION, jobs.Handler),
+            (r"/api/%s/executions" % self.VERSION, executions.Handler),
+            (r"/api/%s/executions/(.*)" % self.VERSION, executions.Handler),
+            (r"/api/%s/logs" % self.VERSION, audit_logs.Handler),
         ]
         self.application = tornado.web.Application(URLS, **self.tornado_settings)
 
@@ -70,9 +69,9 @@ class SchedulerServer:
 
     @classmethod
     def signal_handler(cls, signal, frame):
-        logger.info('Stopping scheduler ...')
+        logger.info("Stopping scheduler ...")
         cls.singleton.stop_scheduler()
-        logger.info('Done. Bye ~')
+        logger.info("Done. Bye ~")
         sys.exit(0)
 
     @classmethod
@@ -89,13 +88,15 @@ class SchedulerServer:
                 job_misfire_grace_sec=settings.JOB_MISFIRE_GRACE_SEC,
                 job_max_instances=settings.JOB_MAX_INSTANCES,
                 thread_pool_size=settings.THREAD_POOL_SIZE,
-                timezone=settings.TIMEZONE
+                timezone=settings.TIMEZONE,
             )
 
             cls.singleton = cls(sched_manager)
             cls.singleton.start_scheduler()
             cls.singleton.application.listen(settings.HTTP_PORT, settings.HTTP_ADDRESS)
-            logger.info('Running server at %s:%d ...' % (settings.HTTP_ADDRESS, settings.HTTP_PORT))
-            logger.info('*** You can access scheduler web ui at http://localhost:%d'
-                        ' ***' % settings.HTTP_PORT)
+            logger.info("Running server at %s:%d ..." % (settings.HTTP_ADDRESS, settings.HTTP_PORT))
+            logger.info(
+                "*** You can access scheduler web ui at http://localhost:%d"
+                " ***" % settings.HTTP_PORT
+            )
             tornado.ioloop.IOLoop.instance().start()

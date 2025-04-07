@@ -19,6 +19,22 @@
 11. uv pip install -e .
 12. uv run simple_scheduler/scheduler.py
 
+## update to python 3.11
+
+1. Tornado 相關更新
+    - ...
+2. SQLAlchemy 相關更新
+    - ...
+3. APScheduler 相關更新
+    - n/a
+4. del .venv/
+    - close IDE and open cmd to run
+5. uv venv --python=3.11
+6. .venv/Scripts/activate
+7. uv pip install -r requirements.txt
+8. fix setup.py
+9. uv pip install -e .
+
 ## RUN
 
 1. export NDSCHEDULER_SETTINGS_MODULE=simple_scheduler.settings
@@ -33,6 +49,23 @@
 2. AUDIT_LOGS 只儲存 job 變更紀錄，EXECUTIONS 只儲存 job 執行紀錄。
 3. DEFAULT_TIMEZONE = 'UTC'
 4. NDSCHEDULER_SETTINGS_MODULE=simple_scheduler.settings 用來決定要載入哪個設定檔。當這個環境變數沒有設定時，系統會使用預設設定（default_settings.py），而不是我們的自定義設定（simple_scheduler/settings.py）。在預設設定中，HTTP_PORT 被設定為 7777。
+5. move base_test.py
+    - from `\ndscheduler\corescheduler\datastore\base_test.py`
+    - to `\tests\ndscheduler\corescheduler\datastore\test_base.py`
+6. move another *_test.py
+
+### cUrl
+
+```bash
+curl -X POST http://localhost:8888/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_class_string": "simple_scheduler.jobs.sample_job.AwesomeJob",
+    "name": "API 新增的任務",
+    "pub_args": ["API參數1", "API參數2"],
+    "minute": "*/5"
+  }'
+```
 
 ### DDL (datastore.db)
 
@@ -76,6 +109,10 @@ netstat -ano | findstr :8888
 # pytest
 uv pip install pytest pytest_asyncio
 pytest tests/test_main.py -v
+pytest tests/ndscheduler/corescheduler/datastore/test_base.py -v
+pytest ndscheduler/server/handlers/executions_test.py -v
+
+# temp
 pytest tests/corescheduler/datastore/providers/test_sqlite_async.py -v
 pytest tests/integration/test_server.py -v
 pytest tests/integration/test_server.py -vv -s
