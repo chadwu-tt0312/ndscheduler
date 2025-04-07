@@ -19,6 +19,11 @@
 11. uv pip install -e .
 12. uv run simple_scheduler/scheduler.py
 
+## RUN
+
+1. export NDSCHEDULER_SETTINGS_MODULE=simple_scheduler.settings
+2. uv run simple_scheduler/scheduler.py
+
 ## Memo
 
 1. DB tablename
@@ -67,6 +72,10 @@ CREATE TABLE scheduler_execution (
 
 ```cmd
 netstat -ano | findstr :8888
+
+# pytest
+uv pip install pytest pytest_asyncio
+pytest tests/test_main.py -v
 pytest tests/corescheduler/datastore/providers/test_sqlite_async.py -v
 pytest tests/integration/test_server.py -v
 pytest tests/integration/test_server.py -vv -s
