@@ -19,12 +19,12 @@ from ndscheduler import default_settings
 
 logger = logging.getLogger()
 ch = logging.StreamHandler(sys.stdout)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 
-ENVIRONMENT_VARIABLE = 'NDSCHEDULER_SETTINGS_MODULE'
+ENVIRONMENT_VARIABLE = "NDSCHEDULER_SETTINGS_MODULE"
 
 _settings_module = None
 
@@ -32,7 +32,7 @@ _settings_module = None
 def setup_package():
     global _settings_module
     _settings_module = os.environ.get(ENVIRONMENT_VARIABLE)
-    os.environ[ENVIRONMENT_VARIABLE] = 'ndscheduler.default_settings_test'
+    os.environ[ENVIRONMENT_VARIABLE] = "ndscheduler.default_settings_test"
     # Re-intitialize settings
     global settings
     settings.__init__()
@@ -77,16 +77,12 @@ class Settings(object):
                         setting_value = getattr(settings_module, setting)
                         setattr(self, setting, setting_value)
             except ImportError as e:
-                error = ImportError(
-                    'Could not import settings "%s" (Is it on sys.path?): %s' %
-                    (settings_module_path, e))
+                error = ImportError(f"Could not import settings {settings_module_path} (Is it on sys.path?): {e}")
                 logger.warning(error)
         except KeyError:
             # NOTE: This is arguably an EnvironmentError, but that causes
             # problems with Python's interactive help.
-            logger.warning(
-                ('Environment variable %s is undefined. '
-                 'Use default settings for now.') % ENVIRONMENT_VARIABLE)
+            logger.warning(f"Environment variable {ENVIRONMENT_VARIABLE} is undefined. Use default settings for now.")
 
 
 # Instantiate the settings globally.

@@ -19,6 +19,7 @@ DEBUG = True
 STATIC_DIR_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "static")
 TEMPLATE_DIR_PATH = STATIC_DIR_PATH
 APP_INDEX_PAGE = "index.html"
+WEBSITE_TITLE = "Scheduler"
 
 #
 # Server setup
@@ -43,15 +44,6 @@ TIMEZONE = "UTC"
 # Otherwise, if it's misfired over 1 hour, the scheduler will not rerun it.
 JOB_MISFIRE_GRACE_SEC = 3600
 
-# APScheduler 3.11.0 specific settings
-JOB_DEFAULTS = {
-    "coalesce": JOB_COALESCE,
-    "max_instances": JOB_MAX_INSTANCES,
-    "misfire_grace_time": JOB_MISFIRE_GRACE_SEC,
-}
-
-EXECUTORS = {"default": {"type": "threadpool", "max_workers": THREAD_POOL_SIZE}}
-
 #
 # Database settings
 #
@@ -70,13 +62,7 @@ DATABASE_TABLENAMES = {
 # SQLite
 #
 DATABASE_CLASS = "ndscheduler.corescheduler.datastore.providers.sqlite.DatastoreSqlite"
-DATABASE_CONFIG_DICT = {
-    "file_path": "datastore.db",
-    "echo": False,  # Set to True to see SQL queries in logs
-    "future": True,  # Required for SQLAlchemy 2.0
-    "pool_pre_ping": True,  # Enable connection pool pre-ping
-    "pool_recycle": 3600,  # Recycle connections after 1 hour
-}
+DATABASE_CONFIG_DICT = {"file_path": "datastore.db"}
 
 # Postgres
 #
@@ -87,11 +73,7 @@ DATABASE_CONFIG_DICT = {
 #     'hostname': 'localhost',
 #     'port': 5432,
 #     'database': 'scheduler',
-#     'sslmode': 'disable',
-#     'echo': False,  # Set to True to see SQL queries in logs
-#     'future': True,  # Required for SQLAlchemy 2.0
-#     'pool_pre_ping': True,  # Enable connection pool pre-ping
-#     'pool_recycle': 3600  # Recycle connections after 1 hour
+#     'sslmode': 'disable'
 # }
 
 # MySQL
@@ -102,11 +84,7 @@ DATABASE_CONFIG_DICT = {
 #     'password': '',
 #     'hostname': 'localhost',
 #     'port': 3306,
-#     'database': 'scheduler',
-#     'echo': False,  # Set to True to see SQL queries in logs
-#     'future': True,  # Required for SQLAlchemy 2.0
-#     'pool_pre_ping': True,  # Enable connection pool pre-ping
-#     'pool_recycle': 3600  # Recycle connections after 1 hour
+#     'database': 'scheduler'
 # }
 
 # ndschedule is based on apscheduler. Here we can customize the apscheduler's main scheduler class
@@ -118,11 +96,7 @@ SCHEDULER_CLASS = "ndscheduler.corescheduler.core.base.BaseScheduler"
 #
 logging.getLogger().setLevel(logging.INFO)
 
-# Configure APScheduler logging
-logging.getLogger("apscheduler").setLevel(logging.INFO)
-
-# Configure SQLAlchemy logging
-logging.getLogger("sqlalchemy").setLevel(logging.WARNING)
 
 # Packages that contains job classes, e.g., simple_scheduler.jobs
 JOB_CLASS_PACKAGES = []
+JOB_CLASS_EXCLUDE_PACKAGES = ["apns_job"]

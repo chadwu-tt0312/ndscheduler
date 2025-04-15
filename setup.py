@@ -86,6 +86,7 @@ setup(
         "tornado >= 6.4.0",
         "python-dateutil >= 2.8.2",
         "pytz >= 2025.2",
+        "requests",
     ],
     classifiers=classifiers,
     cmdclass={"clean": CleanHook},

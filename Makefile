@@ -37,7 +37,7 @@ simple:
 	if [ ! -d ".venv" ]; then make install; fi
 
 	# Install dependencies
-	$(PIP) install -r simple_scheduler/requirements.txt;
+	#$(PIP) install -r simple_scheduler/requirements.txt;
 
 	# Uninstall ndscheduler, so that simple scheduler can pick up non-package code
 	$(SOURCE_VENV) && $(PIP) uninstall ndscheduler || true

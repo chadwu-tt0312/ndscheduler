@@ -19,4 +19,5 @@ logging.getLogger().setLevel(logging.DEBUG)
 JOB_CLASS_PACKAGES = ["simple_scheduler.jobs"]
 
 # Exclude specific jobs that require additional dependencies
-EXCLUDE_JOB_CLASS_PACKAGES = ["apns_job"]
+JOB_CLASS_EXCLUDE_PACKAGES = ["apns_job"]
+TIMEZONE = "Asia/Taipei"

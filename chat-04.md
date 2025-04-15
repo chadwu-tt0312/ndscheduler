@@ -32,7 +32,7 @@ Ran tool
      - 異步處理語法（async/await）
      - 路由處理方式
      - HTTP 請求處理
-   
+
    - SQLAlchemy 相關調整：
      - ORM 語法變更（特別是 2.0 版本的新語法）
      - Session 管理方式
@@ -95,7 +95,7 @@ Searched web for "latest stable version apscheduler python package 2024"
 3. **APScheduler**:
    - 從 `==3.6.3` 更新到 `>=3.11.0`
    - 新版本支援：
-     - Python 3.8+ 
+     - Python 3.8+
      - 改進的任務調度功能
      - 更好的並發處理
      - 更多的後端存儲選項
@@ -315,13 +315,10 @@ Read file: ndscheduler/corescheduler/core/base.py
 
 讓我們檢查一下 `__init__.py` 檔案，因為它可能包含了版本資訊和套件初始化邏輯：
 
-Read file: ndscheduler/__init__.py
 讓我們檢查一下 `default_settings.py` 檔案，因為它包含了預設設定：
 
-Read file: ndscheduler/default_settings.py
 讓我們檢查一下 `default_settings_test.py` 檔案，因為它包含了測試環境的設定：
 
-Read file: ndscheduler/default_settings_test.py
 根據檢查結果，我們需要更新一些設定檔案以支援新版本。讓我們先更新 `default_settings.py`：
 
 現在讓我們更新 `default_settings_test.py`：
