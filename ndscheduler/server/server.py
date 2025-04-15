@@ -8,6 +8,7 @@ How to use:
 import logging
 import signal
 import sys
+import os
 
 import tornado
 
@@ -17,6 +18,7 @@ from ndscheduler.server.handlers import audit_logs
 from ndscheduler.server.handlers import executions
 from ndscheduler.server.handlers import index
 from ndscheduler.server.handlers import jobs
+from ndscheduler.server.handlers import auth
 
 logger = logging.getLogger(__name__)
 
@@ -31,17 +33,25 @@ class SchedulerServer:
         # Start scheduler
         self.scheduler_manager = scheduler_instance
 
+        # 設定模板目錄
+        template_path = os.path.join(os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "templates")
+
         self.tornado_settings = dict(
             debug=settings.DEBUG,
             static_path=settings.STATIC_DIR_PATH,
-            template_path=settings.TEMPLATE_DIR_PATH,
+            template_path=template_path,  # 使用獨立的模板目錄
             scheduler_manager=self.scheduler_manager,
+            login_url="/login",
+            cookie_secret=settings.JWT_SECRET,  # 使用 JWT secret 作為 cookie secret
         )
 
         # Setup server
         URLS = [
             # Index page
             (r"/", index.Handler),
+            (r"/login", index.LoginHandler),
+            # Auth APIs
+            (r"/api/%s/auth/login" % self.VERSION, auth.LoginHandler),
             # APIs
             (r"/api/%s/jobs" % self.VERSION, jobs.Handler),
             (r"/api/%s/jobs/(.*)" % self.VERSION, jobs.Handler),
@@ -95,8 +105,5 @@ class SchedulerServer:
             cls.singleton.start_scheduler()
             cls.singleton.application.listen(settings.HTTP_PORT, settings.HTTP_ADDRESS)
             logger.info("Running server at %s:%d ..." % (settings.HTTP_ADDRESS, settings.HTTP_PORT))
-            logger.info(
-                "*** You can access scheduler web ui at http://localhost:%d"
-                " ***" % settings.HTTP_PORT
-            )
+            logger.info("*** You can access scheduler web ui at http://localhost:%d" " ***" % settings.HTTP_PORT)
             tornado.ioloop.IOLoop.instance().start()

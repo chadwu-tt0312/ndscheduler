@@ -17,7 +17,7 @@ DEBUG = True
 # The web UI is a single page app. All javascripts/css files should be in STATIC_DIR_PATH
 #
 STATIC_DIR_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "static")
-TEMPLATE_DIR_PATH = STATIC_DIR_PATH
+TEMPLATE_DIR_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 APP_INDEX_PAGE = "index.html"
 WEBSITE_TITLE = "Scheduler"
 
@@ -50,11 +50,17 @@ JOB_MISFIRE_GRACE_SEC = 3600
 JOBS_TABLENAME = "scheduler_jobs"
 EXECUTIONS_TABLENAME = "scheduler_execution"
 AUDIT_LOGS_TABLENAME = "scheduler_jobauditlog"
+USERS_TABLENAME = "scheduler_users"
+CATEGORIES_TABLENAME = "scheduler_categories"
+JOB_CATEGORIES_TABLENAME = "scheduler_job_categories"
 
 DATABASE_TABLENAMES = {
     "jobs_tablename": JOBS_TABLENAME,
     "executions_tablename": EXECUTIONS_TABLENAME,
     "auditlogs_tablename": AUDIT_LOGS_TABLENAME,
+    "users_tablename": USERS_TABLENAME,
+    "categories_tablename": CATEGORIES_TABLENAME,
+    "job_categories_tablename": JOB_CATEGORIES_TABLENAME,
 }
 
 # See different database providers in ndscheduler/core/datastore/providers/
@@ -100,3 +106,35 @@ logging.getLogger().setLevel(logging.INFO)
 # Packages that contains job classes, e.g., simple_scheduler.jobs
 JOB_CLASS_PACKAGES = []
 JOB_CLASS_EXCLUDE_PACKAGES = ["apns_job"]
+
+# User authentication
+#
+# To enable user authentication, modify the dict below
+# e.g. AUTH_CREDENTIALS = {'username': 'password'}
+# The pasword must be hashed using bcrypt (e.g. htpasswd -nbB userName userPassword)
+AUTH_CREDENTIALS = {"user": "$2b$12$kdS48PJ4lN0AUkAPlKrSsepvmtZLhnAzbJhFTJPBIv71.Q8EvMFpi"}
+
+#
+# Logging settings
+#
+LOGGING_CONF = {
+    "version": 1,
+    "disable_existing_loggers": True,
+    "formatters": {
+        "standard": {"format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"},
+    },
+    "handlers": {
+        "console": {"level": "INFO", "class": "logging.StreamHandler", "formatter": "standard"},
+    },
+    "loggers": {
+        "ndscheduler": {"handlers": ["console"], "level": "INFO", "propagate": True},
+        "apscheduler": {"handlers": ["console"], "level": "INFO", "propagate": True},
+    },
+}
+
+#
+# JWT settings
+#
+JWT_SECRET = os.environ.get("JWT_SECRET", "your-secret-key")
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_DAYS = 1

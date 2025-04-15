@@ -5,3 +5,5 @@ pytz>=2025.2
 future>=0.18.3
 python-dateutil>=2.8.2
 requests
+bcrypt>=4.0.1
+PyJWT>=2.8.0

@@ -7,6 +7,7 @@ import json
 from concurrent import futures
 
 import tornado.web
+from jwt import decode, ExpiredSignatureError, InvalidTokenError
 
 from ndscheduler import settings
 
@@ -37,9 +38,51 @@ class BaseHandler(tornado.web.RequestHandler):
     def get_username(self) -> str:
         """取得登入使用者名稱。
 
-        預設為空字串。可由子類別覆寫以實現自訂的使用者認證。
+        從 JWT token 中取得使用者名稱。
 
         :return: 使用者名稱
         :rtype: str
         """
-        return ""
+        user = self.get_current_user()
+        return user.get("username", "") if user else ""
+
+    def get_current_user(self):
+        """取得目前登入的使用者。
+
+        從 JWT token 中取得使用者資訊。
+        token 可以從 Authorization 標頭或 cookie 中取得。
+
+        :return: 使用者資訊字典或 None
+        :rtype: dict or None
+        """
+        # 先嘗試從 Authorization 標頭取得 token
+        auth_header = self.request.headers.get("Authorization")
+        token = None
+
+        if auth_header and auth_header.startswith("Bearer "):
+            token = auth_header.split(" ")[1]
+        else:
+            # 如果沒有 Authorization 標頭，嘗試從 cookie 取得 token
+            token = self.get_secure_cookie("token")
+            if token:
+                token = token.decode("utf-8")
+
+        if not token:
+            return None
+
+        try:
+            payload = decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+            return payload
+        except ExpiredSignatureError:
+            return None
+        except InvalidTokenError:
+            return None
+
+    def write_error(self, status_code: int, **kwargs) -> None:
+        """自訂錯誤回應格式。
+
+        :param status_code: HTTP 狀態碼
+        :type status_code: int
+        """
+        self.set_header("Content-Type", "application/json")
+        self.write({"error": {"code": status_code, "message": self._reason}})

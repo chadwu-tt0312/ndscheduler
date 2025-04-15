@@ -1,6 +1,5 @@
 """Represents the core scheduler instance that actually schedules jobs."""
 
-
 from apscheduler.executors import pool
 
 from ndscheduler.corescheduler import constants
@@ -9,15 +8,18 @@ from ndscheduler.corescheduler import utils
 
 class SchedulerManager:
 
-    def __init__(self, scheduler_class_path,
-                 datastore_class_path,
-                 db_config=None,
-                 db_tablenames=None,
-                 job_coalesce=constants.DEFAULT_JOB_COALESCE,
-                 job_misfire_grace_sec=constants.DEFAULT_JOB_MISFIRE_GRACE_SEC,
-                 job_max_instances=constants.DEFAULT_JOB_MAX_INSTANCES,
-                 thread_pool_size=constants.DEFAULT_THREAD_POOL_SIZE,
-                 timezone=constants.DEFAULT_TIMEZONE):
+    def __init__(
+        self,
+        scheduler_class_path,
+        datastore_class_path,
+        db_config=None,
+        db_tablenames=None,
+        job_coalesce=constants.DEFAULT_JOB_COALESCE,
+        job_misfire_grace_sec=constants.DEFAULT_JOB_MISFIRE_GRACE_SEC,
+        job_max_instances=constants.DEFAULT_JOB_MAX_INSTANCES,
+        thread_pool_size=constants.DEFAULT_THREAD_POOL_SIZE,
+        timezone=constants.DEFAULT_TIMEZONE,
+    ):
         """
         :param str scheduler_class_path: string path for scheduler, e.g. 'mysched.FancyScheduler'
         :param str datastore_class_path: string path for datastore, e.g. 'datastore.SQLDatastore'
@@ -26,7 +28,10 @@ class SchedulerManager:
         executions, or audit logs table, e.g. {
             'executions_tablename': 'scheduler_executions',
             'jobs_tablename': 'scheduler_jobs',
-            'auditlogs_tablename': 'scheduler_auditlogs'
+            'auditlogs_tablename': 'scheduler_auditlogs',
+            'users_tablename': 'scheduler_users',
+            'categories_tablename': 'scheduler_categories'
+            'job_categories_tablename': 'scheduler_job_categories'
         }
         If any of these keys is not provided, the default table name is selected from constants.py
         :param bool job_coalesce: True by default
@@ -36,27 +41,23 @@ class SchedulerManager:
         :param str timezone: str timezone to schedule jobs in, e.g. 'UTC'
         """
         datastore = utils.get_datastore_instance(datastore_class_path, db_config, db_tablenames)
-        job_stores = {
-            'default': datastore
-        }
+        job_stores = {"default": datastore}
 
         job_default = {
-            'coalesce': job_coalesce,
-            'misfire_grace_time': job_misfire_grace_sec,
-            'max_instances': job_max_instances
+            "coalesce": job_coalesce,
+            "misfire_grace_time": job_misfire_grace_sec,
+            "max_instances": job_max_instances,
         }
 
-        executors = {
-            'default': pool.ThreadPoolExecutor(thread_pool_size)
-        }
+        executors = {"default": pool.ThreadPoolExecutor(thread_pool_size)}
 
         scheduler_class = utils.import_from_path(scheduler_class_path)
-        self.sched = scheduler_class(datastore_class_path, jobstores=job_stores,
-                                     executors=executors, job_defaults=job_default,
-                                     timezone=timezone)
+        self.sched = scheduler_class(
+            datastore_class_path, jobstores=job_stores, executors=executors, job_defaults=job_default, timezone=timezone
+        )
 
     def get_datastore(self):
-        return self.sched._lookup_jobstore('default')
+        return self.sched._lookup_jobstore("default")
 
     #
     # Manage the entire scheduler
@@ -79,8 +80,18 @@ class SchedulerManager:
     #
     # Manage jobs
     #
-    def add_job(self, job_class_string, name, pub_args=None, month=None,
-                day_of_week=None, day=None, hour=None, minute=None, **kwargs):
+    def add_job(
+        self,
+        job_class_string,
+        name,
+        pub_args=None,
+        month=None,
+        day_of_week=None,
+        day=None,
+        hour=None,
+        minute=None,
+        **kwargs
+    ):
         """Add a job. Job infomation will be persistent in the datastore.
         This is a NON-BLOCKING operation, as internally, apscheduler calls wakeup()
         that is async.
@@ -96,8 +107,9 @@ class SchedulerManager:
         :return: String of job id, e.g., 6bca19736d374ef2b3df23eb278b512e
         :rtype: str
         """
-        return self.sched.add_scheduler_job(job_class_string, name, pub_args, month, day_of_week,
-                                            day, hour, minute, **kwargs)
+        return self.sched.add_scheduler_job(
+            job_class_string, name, pub_args, month, day_of_week, day, hour, minute, **kwargs
+        )
 
     def pause_job(self, job_id):
         """Pauses the schedule of a job.
