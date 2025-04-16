@@ -11,7 +11,7 @@ from ndscheduler.corescheduler import utils
 #
 
 
-def get_job_categories_table(metadata, tablename="scheduler_job_categories"):
+def get_job_categories_table(metadata, tablename):
     """取得任務分類關聯表格的結構。
 
     :param metadata: SQLAlchemy MetaData instance
@@ -91,7 +91,7 @@ def get_auditlogs_table(metadata, tablename):
     )
 
 
-def get_users_table(metadata, tablename="users"):
+def get_users_table(metadata, tablename):
     """Get the users table schema.
 
     :param metadata: SQLAlchemy MetaData instance
@@ -117,7 +117,7 @@ def get_users_table(metadata, tablename="users"):
     )
 
 
-def get_categories_table(metadata, tablename="categories"):
+def get_categories_table(metadata, tablename):
     """Get the categories table schema.
 
     :param metadata: SQLAlchemy MetaData instance

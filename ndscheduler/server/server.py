@@ -6,6 +6,7 @@ How to use:
 """
 
 import logging
+import logging.config
 import signal
 import sys
 import os
@@ -19,6 +20,14 @@ from ndscheduler.server.handlers import executions
 from ndscheduler.server.handlers import index
 from ndscheduler.server.handlers import jobs
 from ndscheduler.server.handlers import auth
+from ndscheduler.server.handlers import categories
+
+# 確保日誌目錄存在
+if not os.path.exists("logs"):
+    os.makedirs("logs")
+
+# 配置日誌
+logging.config.dictConfig(settings.LOGGING_CONF)
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +61,9 @@ class SchedulerServer:
             (r"/login", index.LoginHandler),
             # Auth APIs
             (r"/api/%s/auth/login" % self.VERSION, auth.LoginHandler),
+            # Categories APIs
+            (r"/api/%s/categories" % self.VERSION, categories.CategoriesHandler),
+            (r"/api/%s/categories/(.*)" % self.VERSION, categories.CategoryHandler),
             # APIs
             (r"/api/%s/jobs" % self.VERSION, jobs.Handler),
             (r"/api/%s/jobs/(.*)" % self.VERSION, jobs.Handler),

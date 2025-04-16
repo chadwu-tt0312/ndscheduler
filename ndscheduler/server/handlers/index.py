@@ -19,7 +19,9 @@ class Handler(base.BaseHandler):
             print(f"正在渲染主頁，meta_info: {meta_info}")
             print(f"使用模板: {settings.APP_INDEX_PAGE}")
             print(f"模板目錄: {settings.TEMPLATE_DIR_PATH}")
-            self.render(settings.APP_INDEX_PAGE, jobs_meta_info=json.dumps(meta_info))
+            self.render(
+                settings.APP_INDEX_PAGE, jobs_meta_info=json.dumps(meta_info), WEBSITE_TITLE=settings.WEBSITE_TITLE
+            )
         except Exception as e:
             print(f"渲染主頁時發生錯誤: {str(e)}")
             import traceback

@@ -21,6 +21,144 @@
             // DEFAULT_CACHE_BUSTER will be replaced with a release token by the
             // build script. cacheBuster is used by requirejs.
             cacheBuster = DEFAULT_CACHE_BUSTER;
+            // 從 cookie 中獲取用戶資訊
+            function getCookie(name) {
+                var value = "; " + document.cookie;
+                var parts = value.split("; " + name + "=");
+                if (parts.length == 2) {
+                    var cookieValue = parts.pop().split(";").shift();
+                    // 如果 cookie 值包含 '|'，表示是特殊格式的 token
+                    if (cookieValue.includes("|")) {
+                        var tokenParts = cookieValue.split("|");
+                        // token 值在第 5 個部分（索引 4）
+                        var tokenWithLength = tokenParts[4];
+                        // 如果 token 包含長度前綴（例如 "288:"），去除它
+                        if (tokenWithLength.includes(":")) {
+                            return tokenWithLength.split(":")[1];
+                        }
+                        return tokenWithLength;
+                    }
+                    // 如果 cookie 值包含長度前綴（例如 "288:"），去除它
+                    if (cookieValue.includes(":")) {
+                        return cookieValue.split(":")[1];
+                    }
+                    return cookieValue;
+                }
+                return null;
+            }
+            // 解析 JWT token 中的用戶資訊
+            function parseJwt(token) {
+                try {
+                    if (!token) {
+                        console.log("No token found");
+                        return null;
+                    }
+                    // console.log("Processing token:", token);
+
+                    // 解碼 base64url 格式的 token
+                    function base64UrlDecode(str) {
+                        try {
+                            // 將 base64url 轉換為標準 base64
+                            str = str.replace(/-/g, "+").replace(/_/g, "/");
+                            // 添加填充
+                            while (str.length % 4) {
+                                str += "=";
+                            }
+                            // 先嘗試 UTF-8 解碼
+                            try {
+                                return decodeURIComponent(
+                                    Array.prototype.map
+                                        .call(atob(str), function (c) {
+                                            return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
+                                        })
+                                        .join("")
+                                );
+                            } catch (e) {
+                                // 如果 UTF-8 解碼失敗，直接返回原始解碼結果
+                                return atob(str);
+                            }
+                        } catch (e) {
+                            console.error("Base64 decode error:", e);
+                            return null;
+                        }
+                    }
+
+                    // 先解碼整個 token
+                    var decodedToken = base64UrlDecode(token);
+                    // console.log("Decoded token:", decodedToken);
+
+                    // 檢查解碼後的 token 是否是 JWT 格式
+                    if (decodedToken.includes("eyJ")) {
+                        // console.log("Found JWT format in decoded token");
+                        // 使用解碼後的 token 進行 JWT 解析
+                        var parts = decodedToken.split(".");
+                        if (parts.length === 3) {
+                            try {
+                                var payload = JSON.parse(base64UrlDecode(parts[1]));
+                                // console.log("Decoded JWT payload:", payload);
+                                return payload;
+                            } catch (e) {
+                                console.error("Failed to parse JWT payload:", e);
+                            }
+                        }
+                    }
+
+                    // 如果不是 JWT 格式或解析失敗，嘗試直接解析
+                    try {
+                        var payload = JSON.parse(decodedToken);
+                        console.log("Parsed payload directly:", payload);
+                        return payload;
+                    } catch (e) {
+                        console.error("Failed to parse token as JSON:", e);
+                        return null;
+                    }
+                } catch (e) {
+                    console.error("Token parsing error:", e);
+                    return null;
+                }
+            }
+            // 刪除 cookie
+            function deleteCookie(name) {
+                document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/;";
+            }
+            // 登出功能
+            function logout() {
+                deleteCookie("token");
+                window.location.href = "/login";
+            }
+            // 檢查用戶是否為管理員
+            var token = getCookie("token");
+            var isAdmin = false;
+            var username = "";
+            if (token) {
+                var user = parseJwt(token);
+                isAdmin = user && user.is_admin === true;
+                username = user ? user.username : "";
+            } else {
+                // 如果沒有 token，重定向到登入頁面
+                if (window.location.pathname !== "/login") {
+                    window.location.href = "/login";
+                }
+            }
+
+            // 等待 DOM 完全加載後再更新標題和管理員選項
+            document.addEventListener("DOMContentLoaded", function () {
+                // 更新網站標題
+                var websiteTitle = document.getElementById("website-title");
+                if (websiteTitle && username) {
+                    websiteTitle.textContent = "{{ WEBSITE_TITLE }}@" + username;
+                }
+
+                // 顯示/隱藏管理員選項
+                if (isAdmin === true) {
+                    var adminElements = document.getElementsByClassName("admin-only");
+                    Array.from(adminElements).forEach(function (element) {
+                        if (element) {
+                            element.style.cssText = "display: block !important";
+                        }
+                    });
+                }
+            });
         </script>
     </head>
     <body>
@@ -38,7 +176,7 @@
                         <i class="icon-bar"></i>
                         <i class="icon-bar"></i>
                     </button>
-                    <span class="navbar-brand">Nextdoor Scheduler</span>
+                    <span class="navbar-brand" id="website-title">{{ WEBSITE_TITLE }}</span>
                 </div>
                 <div class="navbar-collapse collapse">
                     <ul class="nav navbar-nav navbar-right">
@@ -46,12 +184,22 @@
                         <li id="executions-tab"><a href="#executions">Executions</a></li>
                         <li id="logs-tab"><a href="#logs">Audit Logs</a></li>
                         <li class="dropdown">
-                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">Info <i class="caret"></i></a>
+                            <a href="#" class="dropdown-toggle" data-toggle="dropdown">Info<i class="caret"></i></a>
                             <ul class="dropdown-menu">
+                                <li class="admin-only">
+                                    <a href="#users">Users</a>
+                                </li>
+                                <li class="admin-only">
+                                    <a href="#categories">Categories</a>
+                                </li>
                                 <li>
                                     <a href="https://github.com/Nextdoor/ndscheduler" target="_blank"
                                         >ndscheduler GitHub page</a
                                     >
+                                </li>
+                                <li class="divider"></li>
+                                <li>
+                                    <a href="#" id="logout-btn">Logout</a>
                                 </li>
                             </ul>
                         </li>
@@ -209,10 +357,160 @@
                         </div>
                     </div>
                     <!-- logs-page-content -->
+
+                    <!-- Users page content -->
+                    <div id="users-page-content" class="admin-only" style="display: none">
+                        <h2 class="sub-header">Users</h2>
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="users-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Username</th>
+                                        <th>Is Admin</th>
+                                        <th>Category</th>
+                                        <th>Permission</th>
+                                        <th>Created At</th>
+                                        <th>Updated At</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-table-body"></tbody>
+                            </table>
+                            <div id="users-spinner"></div>
+                        </div>
+                    </div>
+
+                    <!-- Categories page content -->
+                    <div id="categories-page-content" class="admin-only" style="display: none">
+                        <h2 class="sub-header">Categories</h2>
+                        <div class="table-responsive">
+                            <table class="table table-striped" id="categories-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Description</th>
+                                        <th>Created At</th>
+                                        <th>Updated At</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="categories-table-body"></tbody>
+                            </table>
+                            <div id="categories-spinner"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
         <script data-main="/static/js/app" src="/static/js/vendor/require.js"></script>
+
+        <style>
+            .admin-only {
+                display: none; /* 移除 !important */
+            }
+        </style>
+        <script>
+            // 頁面載入時的初始化
+            document.addEventListener("DOMContentLoaded", function () {
+                // 綁定登出按鈕事件
+                var logoutBtn = document.getElementById("logout-btn");
+                if (logoutBtn) {
+                    logoutBtn.addEventListener("click", function (e) {
+                        e.preventDefault();
+                        logout();
+                    });
+                }
+            });
+
+            // 頁面切換處理
+            function showPage(pageId) {
+                // 定義所有可能的頁面
+                var mainPages = [
+                    "jobs-page-content",
+                    "executions-page-content",
+                    "logs-page-content",
+                    "users-page-content",
+                    "categories-page-content",
+                ];
+
+                // 隱藏所有頁面
+                mainPages.forEach(function (pageContentId) {
+                    var pageElement = document.getElementById(pageContentId);
+                    if (pageElement) {
+                        pageElement.style.display = "none";
+                    }
+                });
+
+                // 顯示當前頁面
+                var currentContent = document.getElementById(pageId + "-page-content");
+                if (currentContent) {
+                    currentContent.style.display = "block";
+                }
+
+                // 處理側邊欄
+                var sidebars = ["jobs-page-sidebar", "executions-page-sidebar", "logs-page-sidebar"];
+
+                // 隱藏所有側邊欄
+                sidebars.forEach(function (sidebarId) {
+                    var sidebar = document.getElementById(sidebarId);
+                    if (sidebar) {
+                        sidebar.style.display = "none";
+                    }
+                });
+
+                // 顯示當前頁面的側邊欄
+                if (["jobs", "executions", "logs"].includes(pageId)) {
+                    var currentSidebar = document.getElementById(pageId + "-page-sidebar");
+                    if (currentSidebar) {
+                        currentSidebar.style.display = "block";
+                    }
+                }
+
+                // 更新導航標籤狀態
+                document.querySelectorAll(".nav li").forEach(function (tab) {
+                    tab.classList.remove("active");
+                });
+                var currentTab = document.getElementById(pageId + "-tab");
+                if (currentTab) {
+                    currentTab.classList.add("active");
+                }
+
+                // 更新頁面標題
+                var subHeader = document.querySelector(".sub-header");
+                if (subHeader) {
+                    var titles = {
+                        jobs: "Jobs",
+                        executions: "Executions",
+                        logs: "Audit Logs",
+                        users: "Users",
+                        categories: "Categories",
+                    };
+                    subHeader.textContent = titles[pageId] || pageId;
+                }
+
+                // 特殊處理：確保 users 和 categories 頁面只在需要時顯示
+                if (!["users", "categories"].includes(pageId)) {
+                    var usersContent = document.getElementById("users-page-content");
+                    var categoriesContent = document.getElementById("categories-page-content");
+                    if (usersContent) usersContent.style.display = "none";
+                    if (categoriesContent) categoriesContent.style.display = "none";
+                }
+            }
+
+            // 根據 URL hash 顯示相應頁面
+            function handleHashChange() {
+                var hash = window.location.hash.substring(1) || "jobs";
+                showPage(hash);
+            }
+
+            // 監聽 hash 變化
+            window.addEventListener("hashchange", handleHashChange);
+
+            // 初始頁面載入時顯示相應內容
+            handleHashChange();
+        </script>
     </body>
 
     <script id="jobs-meta-info" type="application/json">

@@ -5,6 +5,7 @@
 
 import json
 from concurrent import futures
+import re
 
 import tornado.web
 from jwt import decode, ExpiredSignatureError, InvalidTokenError
@@ -17,17 +18,37 @@ class BaseHandler(tornado.web.RequestHandler):
 
     executor = futures.ThreadPoolExecutor(max_workers=settings.TORNADO_MAX_WORKERS)
 
+    # 不需要驗證的路徑列表
+    WHITELIST_PATHS = [r"^/login$", r"^/api/v1/auth/login$", r"^/static/.*$"]
+
+    def _is_path_whitelisted(self, path):
+        """檢查路徑是否在白名單中。"""
+        return any(re.match(pattern, path) for pattern in self.WHITELIST_PATHS)
+
     def prepare(self) -> None:
         """預處理請求。
 
         - 解析 JSON 請求內容
         - 設定使用者名稱
         - 初始化排程管理器和資料儲存連接
+        - 檢查用戶身份驗證
         """
+        # 檢查是否為白名單路徑
+        if self._is_path_whitelisted(self.request.path):
+            return
+
+        # 檢查用戶是否已登入
+        user = self.get_current_user()
+        if not user:
+            self.set_status(401)
+            self.write({"error": {"code": 401, "message": "Unauthorized"}})
+            self.finish()
+            return
+
         try:
-            if self.request.headers["Content-Type"].startswith("application/json"):
+            if self.request.headers.get("Content-Type", "").startswith("application/json"):
                 self.json_args = json.loads(self.request.body.decode())
-        except KeyError:
+        except (KeyError, json.JSONDecodeError):
             self.json_args = None
 
         # 用於稽核日誌
@@ -86,3 +107,10 @@ class BaseHandler(tornado.web.RequestHandler):
         """
         self.set_header("Content-Type", "application/json")
         self.write({"error": {"code": status_code, "message": self._reason}})
+
+    def get_session(self):
+        """獲取資料庫會話。
+
+        :return: SQLAlchemy 會話
+        """
+        return self.datastore.session_factory()

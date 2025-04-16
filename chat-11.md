@@ -112,31 +112,69 @@ Categories 資料表：
 
 ---
 
-## answer-8
-
----
-
 ## q-9
+
+實作 "第二階段：Category 管理與過濾"
 
 ---
 
 ## answer-9
 
----
-
-## q-9
+2025-04-15_08-25-category-management-and-filtering-implementation.md
 
 ---
 
-## answer-9
+## q-10
+
+- Info 選單中添加兩項 Users & Categories 的頁面入口。
+- 只有 is_admin = true 的 user 可以看見並使用。
+- 分別用來新增/編輯/刪除/查看 Users。和新增/編輯/刪除/查看 Categories。
 
 ---
 
-## q-9
+## q-11
+
+- Info 選單要有登出功能
+- user 登出後頁面需要跳轉到 login 頁面
+- "user" 登入後看不到 Users 和 Categories
 
 ---
 
-## answer-9
+## q-12
+
+需要修改的頁面顯示
+
+- navbar 的 "Nextdoor Scheduler" 改為使用 default_settings.py 裡的 WEBSITE_TITLE 設定，並且串接 "@"和username。例如:UMC Scheduler@user。
+- 用 "user" (is_admin=true)登入後 info 下拉選單沒有呈現 Users & Categories 的選項，但有呈現 "ndscheduler GitHub page"
+
+---
+
+## answer-12
+
+2025-04-16_00-45-頁面修改與用戶選單問題.md
+
+---
+
+## q-13
+
+圖片中3個紅框，表示3個問題
+1. 顯示 WEBSITE_TITLE 但是沒有使用者名稱
+2. 當用戶是管理員時依然沒顯示"管理員選單項目"
+3. jobs 頁面顯示資料異常(至少有一筆資料)
+
+---
+
+## q-14
+
+console log 如下:
+User info from token: null
+isAdmin status: null
+GET http://localhost:8888/api/v1/categories 500 (Internal Server Error)
+Error fetching categories: {"error": {"code": 500, "message": "Internal Server Error"}}
+
+---
+
+## q-15
 
 ---
 

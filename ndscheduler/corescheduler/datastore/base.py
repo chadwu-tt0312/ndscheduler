@@ -78,21 +78,29 @@ class DatastoreBase(sched_sqlalchemy.SQLAlchemyJobStore):
             if "job_categories_tablename" in table_names:
                 job_categories_tablename = table_names["job_categories_tablename"]
 
-        # 先建立沒有外鍵依賴的資料表
-        self.categories_table = tables.get_categories_table(self.metadata, categories_tablename)
-        self.users_table = tables.get_users_table(self.metadata, users_tablename)
-
-        # 再建立有外鍵依賴的資料表
-        self.executions_table = tables.get_execution_table(self.metadata, executions_tablename)
-        self.auditlogs_table = tables.get_auditlogs_table(self.metadata, auditlogs_tablename)
-        self.job_categories_table = tables.get_job_categories_table(self.metadata, job_categories_tablename)
-
+        # 初始化 SQLAlchemy 基類
         super(DatastoreBase, self).__init__(url=self.get_db_url(), tablename=jobs_tablename)
 
-        self.metadata.create_all(self.engine)
+        try:
+            # 先建立沒有外鍵依賴的資料表
+            self.categories_table = tables.get_categories_table(self.metadata, categories_tablename)
+            self.users_table = tables.get_users_table(self.metadata, users_tablename)
 
-        # 初始化使用者資料
-        self.init_users()
+            # 再建立有外鍵依賴的資料表
+            self.executions_table = tables.get_execution_table(self.metadata, executions_tablename)
+            self.auditlogs_table = tables.get_auditlogs_table(self.metadata, auditlogs_tablename)
+            self.job_categories_table = tables.get_job_categories_table(self.metadata, job_categories_tablename)
+
+            # 創建所有表格
+            self.metadata.create_all(self.engine)
+
+            # 初始化使用者資料
+            self.init_users()
+
+            logger.debug("資料庫初始化成功")
+        except Exception as e:
+            logger.error("資料庫初始化失敗: %s", str(e))
+            raise
 
     def init_users(self):
         """初始化使用者資料。

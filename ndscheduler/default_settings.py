@@ -1,7 +1,7 @@
 """Default settings."""
 
-import logging
 import os
+from datetime import datetime
 
 
 #
@@ -19,7 +19,7 @@ DEBUG = True
 STATIC_DIR_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "static")
 TEMPLATE_DIR_PATH = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 APP_INDEX_PAGE = "index.html"
-WEBSITE_TITLE = "Scheduler"
+WEBSITE_TITLE = "UMC Scheduler"
 
 #
 # Server setup
@@ -97,11 +97,6 @@ DATABASE_CONFIG_DICT = {"file_path": "datastore.db"}
 # Please see ndscheduler/core/scheduler/base.py
 SCHEDULER_CLASS = "ndscheduler.corescheduler.core.base.BaseScheduler"
 
-#
-# Set logging level
-#
-logging.getLogger().setLevel(logging.INFO)
-
 
 # Packages that contains job classes, e.g., simple_scheduler.jobs
 JOB_CLASS_PACKAGES = []
@@ -117,18 +112,54 @@ AUTH_CREDENTIALS = {"user": "$2b$12$kdS48PJ4lN0AUkAPlKrSsepvmtZLhnAzbJhFTJPBIv71
 #
 # Logging settings
 #
+
+# 確保日誌目錄存在
+if not os.path.exists("logs"):
+    os.makedirs("logs")
+
 LOGGING_CONF = {
     "version": 1,
-    "disable_existing_loggers": True,
+    "disable_existing_loggers": False,
     "formatters": {
         "standard": {"format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"},
+        "detailed": {
+            "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s\n  File: %(pathname)s:%(lineno)d\n  Function: %(funcName)s"
+        },
     },
     "handlers": {
-        "console": {"level": "INFO", "class": "logging.StreamHandler", "formatter": "standard"},
+        "console": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+            "stream": "ext://sys.stdout",
+        },
+        "file": {
+            "level": "INFO",
+            "class": "logging.handlers.RotatingFileHandler",
+            # "filename": "logs/scheduler.log",
+            "filename": f"logs/scheduler_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
+            # "formatter": "detailed",
+            "formatter": "standard",
+            "maxBytes": 10485760,
+            "backupCount": 5,
+            "encoding": "utf8",
+        },
+        "error_file": {
+            "level": "ERROR",
+            "class": "logging.handlers.RotatingFileHandler",
+            # "filename": "logs/error.log",
+            "filename": f"logs/error_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log",
+            "formatter": "detailed",
+            "maxBytes": 10485760,
+            "backupCount": 5,
+            "encoding": "utf8",
+        },
     },
+    "root": {"level": "INFO", "handlers": ["console", "file", "error_file"]},
     "loggers": {
-        "ndscheduler": {"handlers": ["console"], "level": "INFO", "propagate": True},
-        "apscheduler": {"handlers": ["console"], "level": "INFO", "propagate": True},
+        "ndscheduler": {"handlers": ["console", "file", "error_file"], "level": "INFO", "propagate": False},
+        "apscheduler": {"handlers": ["console", "file", "error_file"], "level": "INFO", "propagate": False},
+        "tornado": {"handlers": ["console", "file", "error_file"], "level": "INFO", "propagate": False},
     },
 }
 
