@@ -16,9 +16,9 @@ class Handler(base.BaseHandler):
         """Serve up the single page app for scheduler dashboard."""
         try:
             meta_info = utils.get_all_available_jobs() or []  # 確保返回列表，即使是空的
-            print(f"正在渲染主頁，meta_info: {meta_info}")
-            print(f"使用模板: {settings.APP_INDEX_PAGE}")
-            print(f"模板目錄: {settings.TEMPLATE_DIR_PATH}")
+            # print(f"正在渲染主頁，meta_info: {meta_info}")
+            # print(f"使用模板: {settings.APP_INDEX_PAGE}")
+            # print(f"模板目錄: {settings.TEMPLATE_DIR_PATH}")
             self.render(
                 settings.APP_INDEX_PAGE, jobs_meta_info=json.dumps(meta_info), WEBSITE_TITLE=settings.WEBSITE_TITLE
             )

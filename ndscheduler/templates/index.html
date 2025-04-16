@@ -16,6 +16,19 @@
         <link href="static/css/vendor/select2-bootstrap.css" rel="stylesheet" type="text/css" />
         <link href="static/css/main.css" rel="stylesheet" type="text/css" />
 
+        <!-- 添加必要的 JavaScript 依賴 -->
+        <script src="static/js/vendor/jquery.js"></script>
+        <script src="static/js/vendor/jquery.dataTables.js"></script>
+        <script src="static/js/vendor/bootstrap.js"></script>
+        <script src="static/js/vendor/moment.js"></script>
+        <script src="static/js/vendor/moment-timezone-with-data.js"></script>
+        <script src="static/js/vendor/spin.js"></script>
+        <script src="/static/js/vendor/require.js" data-main="/static/js/app"></script>
+
+        <script id="jobs-meta-info" type="application/json">
+            {% raw jobs_meta_info %}
+        </script>
+
         <script>
             var DEFAULT_CACHE_BUSTER = new Date().getTime();
             // DEFAULT_CACHE_BUSTER will be replaced with a release token by the
@@ -141,8 +154,19 @@
                 }
             }
 
-            // 等待 DOM 完全加載後再更新標題和管理員選項
+            // 等待 jQuery 和其他依賴載入完成
             document.addEventListener("DOMContentLoaded", function () {
+                // 確保 jQuery 和 DataTables 已載入
+                if (typeof jQuery !== "undefined" && typeof jQuery.fn.DataTable !== "undefined") {
+                    // 初始化頁面
+                    initializePage();
+                } else {
+                    console.error("jQuery or DataTables is not loaded");
+                }
+            });
+
+            // 將所有初始化邏輯移到這個函數中
+            function initializePage() {
                 // 更新網站標題
                 var websiteTitle = document.getElementById("website-title");
                 if (websiteTitle && username) {
@@ -151,14 +175,193 @@
 
                 // 顯示/隱藏管理員選項
                 if (isAdmin === true) {
-                    var adminElements = document.getElementsByClassName("admin-only");
+                    var adminElements = document.getElementsByClassName("admin-only-dropdown");
                     Array.from(adminElements).forEach(function (element) {
                         if (element) {
                             element.style.cssText = "display: block !important";
+                            console.log("顯示管理員選項:", element, "display = block !important");
                         }
                     });
                 }
-            });
+
+                // 載入 Categories 資料的函數
+                window.loadCategories = function () {
+                    fetch("/api/v1/categories")
+                        .then((response) => response.json())
+                        .then((data) => {
+                            var table = $("#categories-table").DataTable();
+                            table.clear();
+                            if (data && data.categories) {
+                                table.rows.add(data.categories).draw();
+                            }
+                        })
+                        .catch((error) => {
+                            console.error("Error loading categories:", error);
+                        });
+                };
+
+                // 頁面切換處理
+                window.showPage = function (pageId) {
+                    // 處理側邊欄容器
+                    var sidebarContainer = document.querySelector(".sidebar");
+                    if (sidebarContainer) {
+                        sidebarContainer.style.display = ["users", "categories"].includes(pageId) ? "none" : "block";
+                    }
+
+                    // 調整主內容區域的類別
+                    var mainContent = document.querySelector(".main");
+                    if (mainContent) {
+                        if (["users", "categories"].includes(pageId)) {
+                            mainContent.className = "col-sm-12 col-md-12 main";
+                        } else {
+                            mainContent.className = "col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main";
+                        }
+                    }
+
+                    // 隱藏所有頁面
+                    var pages = {
+                        jobs: ["jobs-page-content", "jobs-page-sidebar"],
+                        executions: ["executions-page-content", "executions-page-sidebar"],
+                        logs: ["logs-page-content", "logs-page-sidebar"],
+                        users: ["users-page-content"],
+                        categories: ["categories-page-content"],
+                    };
+
+                    // 隱藏所有頁面和側邊欄
+                    Object.values(pages)
+                        .flat()
+                        .forEach(function (elementId) {
+                            var element = document.getElementById(elementId);
+                            if (element) {
+                                element.style.display = "none";
+                            }
+                        });
+
+                    // 顯示當前頁面
+                    if (pages[pageId]) {
+                        pages[pageId].forEach(function (elementId) {
+                            var element = document.getElementById(elementId);
+                            if (element) {
+                                if ((pageId === "users" || pageId === "categories") && !isAdmin) {
+                                    return;
+                                }
+                                element.style.display = "block";
+                            }
+                        });
+                    }
+
+                    // 更新導航標籤狀態
+                    document.querySelectorAll(".nav li").forEach(function (tab) {
+                        tab.classList.remove("active");
+                    });
+                    var currentTab = document.getElementById(pageId + "-tab");
+                    if (currentTab) {
+                        currentTab.classList.add("active");
+                    }
+
+                    // 更新頁面標題
+                    var subHeader = document.querySelector(".sub-header");
+                    if (subHeader) {
+                        var titles = {
+                            jobs: "Jobs",
+                            executions: "Executions",
+                            logs: "Audit Logs",
+                            users: "Users",
+                            categories: "Categories",
+                        };
+                        subHeader.textContent = titles[pageId] || pageId;
+                    }
+
+                    // 初始化和更新管理員頁面的表格
+                    if (pageId === "categories") {
+                        // 初始化表格（如果尚未初始化）
+                        if (!$.fn.DataTable.isDataTable("#categories-table")) {
+                            $("#categories-table").DataTable({
+                                columns: [
+                                    { data: "id" },
+                                    { data: "name" },
+                                    { data: "description" },
+                                    { data: "created_at" },
+                                    { data: "updated_at" },
+                                    {
+                                        data: null,
+                                        render: function (data, type, row) {
+                                            return (
+                                                '<button class="btn btn-primary btn-sm edit-category">Edit</button> ' +
+                                                '<button class="btn btn-danger btn-sm delete-category">Delete</button>'
+                                            );
+                                        },
+                                    },
+                                ],
+                                order: [[0, "desc"]],
+                                pageLength: 10,
+                                searching: true,
+                                info: true,
+                            });
+                        }
+                        // 載入資料
+                        loadCategories();
+                    }
+                };
+
+                // 確保 Bootstrap 下拉選單正常工作
+                $(document).ready(function () {
+                    $(".dropdown-toggle").dropdown();
+                });
+
+                // 根據 URL hash 顯示相應頁面
+                window.handleHashChange = function () {
+                    var hash = window.location.hash.substring(1) || "jobs";
+                    showPage(hash);
+                };
+
+                // 綁定登出按鈕事件
+                var logoutBtn = document.getElementById("logout-btn");
+                if (logoutBtn) {
+                    logoutBtn.addEventListener("click", function (e) {
+                        e.preventDefault();
+                        logout();
+                    });
+                }
+
+                // 監聽 hash 變化
+                window.addEventListener("hashchange", handleHashChange);
+
+                // 初始頁面載入時顯示相應內容
+                handleHashChange();
+            }
+
+            // 初始化 DataTable
+            function initJobsTable() {
+                if (!$.fn.DataTable.isDataTable("#jobs-table")) {
+                    $("#jobs-table").DataTable({
+                        columns: [
+                            {
+                                data: "name",
+                                render: function (data, type, row) {
+                                    return '<a href="#" class="job-name">' + data + "</a>";
+                                },
+                            },
+                            { data: "schedule" },
+                            { data: "next_run" },
+                            {
+                                data: null,
+                                render: function (data, type, row) {
+                                    return (
+                                        '<button class="btn btn-primary custom-run-btn" data-job-id="' +
+                                        row.job_id +
+                                        '">Custom Run</button>'
+                                    );
+                                },
+                            },
+                        ],
+                        order: [[0, "asc"]],
+                        pageLength: 10,
+                        searching: true,
+                        info: true,
+                    });
+                }
+            }
         </script>
     </head>
     <body>
@@ -186,10 +389,10 @@
                         <li class="dropdown">
                             <a href="#" class="dropdown-toggle" data-toggle="dropdown">Info<i class="caret"></i></a>
                             <ul class="dropdown-menu">
-                                <li class="admin-only">
+                                <li class="admin-only-dropdown">
                                     <a href="#users">Users</a>
                                 </li>
-                                <li class="admin-only">
+                                <li class="admin-only-dropdown">
                                     <a href="#categories">Categories</a>
                                 </li>
                                 <li>
@@ -359,7 +562,7 @@
                     <!-- logs-page-content -->
 
                     <!-- Users page content -->
-                    <div id="users-page-content" class="admin-only" style="display: none">
+                    <div id="users-page-content" class="admin-only col-sm-12 col-md-12" style="display: none">
                         <h2 class="sub-header">Users</h2>
                         <div class="table-responsive">
                             <table class="table table-striped" id="users-table">
@@ -382,7 +585,7 @@
                     </div>
 
                     <!-- Categories page content -->
-                    <div id="categories-page-content" class="admin-only" style="display: none">
+                    <div id="categories-page-content" class="admin-only col-sm-12 col-md-12" style="display: none">
                         <h2 class="sub-header">Categories</h2>
                         <div class="table-responsive">
                             <table class="table table-striped" id="categories-table">
@@ -404,116 +607,14 @@
                 </div>
             </div>
         </div>
-        <script data-main="/static/js/app" src="/static/js/vendor/require.js"></script>
 
         <style>
             .admin-only {
-                display: none; /* 移除 !important */
+                display: none;
+            }
+            .admin-only-dropdown {
+                display: none;
             }
         </style>
-        <script>
-            // 頁面載入時的初始化
-            document.addEventListener("DOMContentLoaded", function () {
-                // 綁定登出按鈕事件
-                var logoutBtn = document.getElementById("logout-btn");
-                if (logoutBtn) {
-                    logoutBtn.addEventListener("click", function (e) {
-                        e.preventDefault();
-                        logout();
-                    });
-                }
-            });
-
-            // 頁面切換處理
-            function showPage(pageId) {
-                // 定義所有可能的頁面
-                var mainPages = [
-                    "jobs-page-content",
-                    "executions-page-content",
-                    "logs-page-content",
-                    "users-page-content",
-                    "categories-page-content",
-                ];
-
-                // 隱藏所有頁面
-                mainPages.forEach(function (pageContentId) {
-                    var pageElement = document.getElementById(pageContentId);
-                    if (pageElement) {
-                        pageElement.style.display = "none";
-                    }
-                });
-
-                // 顯示當前頁面
-                var currentContent = document.getElementById(pageId + "-page-content");
-                if (currentContent) {
-                    currentContent.style.display = "block";
-                }
-
-                // 處理側邊欄
-                var sidebars = ["jobs-page-sidebar", "executions-page-sidebar", "logs-page-sidebar"];
-
-                // 隱藏所有側邊欄
-                sidebars.forEach(function (sidebarId) {
-                    var sidebar = document.getElementById(sidebarId);
-                    if (sidebar) {
-                        sidebar.style.display = "none";
-                    }
-                });
-
-                // 顯示當前頁面的側邊欄
-                if (["jobs", "executions", "logs"].includes(pageId)) {
-                    var currentSidebar = document.getElementById(pageId + "-page-sidebar");
-                    if (currentSidebar) {
-                        currentSidebar.style.display = "block";
-                    }
-                }
-
-                // 更新導航標籤狀態
-                document.querySelectorAll(".nav li").forEach(function (tab) {
-                    tab.classList.remove("active");
-                });
-                var currentTab = document.getElementById(pageId + "-tab");
-                if (currentTab) {
-                    currentTab.classList.add("active");
-                }
-
-                // 更新頁面標題
-                var subHeader = document.querySelector(".sub-header");
-                if (subHeader) {
-                    var titles = {
-                        jobs: "Jobs",
-                        executions: "Executions",
-                        logs: "Audit Logs",
-                        users: "Users",
-                        categories: "Categories",
-                    };
-                    subHeader.textContent = titles[pageId] || pageId;
-                }
-
-                // 特殊處理：確保 users 和 categories 頁面只在需要時顯示
-                if (!["users", "categories"].includes(pageId)) {
-                    var usersContent = document.getElementById("users-page-content");
-                    var categoriesContent = document.getElementById("categories-page-content");
-                    if (usersContent) usersContent.style.display = "none";
-                    if (categoriesContent) categoriesContent.style.display = "none";
-                }
-            }
-
-            // 根據 URL hash 顯示相應頁面
-            function handleHashChange() {
-                var hash = window.location.hash.substring(1) || "jobs";
-                showPage(hash);
-            }
-
-            // 監聽 hash 變化
-            window.addEventListener("hashchange", handleHashChange);
-
-            // 初始頁面載入時顯示相應內容
-            handleHashChange();
-        </script>
     </body>
-
-    <script id="jobs-meta-info" type="application/json">
-        {% raw jobs_meta_info %}
-    </script>
 </html>

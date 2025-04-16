@@ -174,15 +174,23 @@ Error fetching categories: {"error": {"code": 500, "message": "Internal Server E
 
 ---
 
-## q-15
+## q-15 (沒解決)
+
+紅框內容重複
 
 ---
 
-## q-9
+## answer-15
+
+2025-04-16_07-41-頁面重整後紅框內容問題.md
 
 ---
 
-## answer-9
+## q-16
+
+---
+
+## answer-16
 
 ---
 

@@ -130,7 +130,13 @@ class Handler(base.BaseHandler):
             return {"error": "Job not found: %s" % job_id}
         job_name = utils.get_job_name(job)
         args = utils.get_job_args(job)
-        kwargs = job.kwargs
+        kwargs = job.kwargs.copy()  # 創建一個副本以避免修改原始對象
+        
+        # 確保這些參數不在 kwargs 中
+        kwargs.pop('db_config', None)
+        kwargs.pop('db_class_path', None)
+        kwargs.pop('db_tablenames', None)
+        
         scheduler = utils.import_from_path(settings.SCHEDULER_CLASS)
         execution_id = scheduler.run_job(
             job_name,

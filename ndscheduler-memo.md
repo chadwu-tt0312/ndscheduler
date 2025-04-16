@@ -24,19 +24,20 @@
 ## setup (palto42)
 
 1. uv venv --python=3.11
-2. export NDSCHEDULER_SETTINGS_MODULE=simple_scheduler.settings
-3. export PYTHONPATH=.
-4. uv pip install setuptools
-5. uv pip install ldap/python_ldap-3.4.4-cp311-cp311-win_amd64.whl
-6. fix makefile/setup.cfg/setup.py
-7. add test_requirements.txt
+2. source .venv/Scripts/activate
+3. export NDSCHEDULER_SETTINGS_MODULE=simple_scheduler.settings
+4. export PYTHONPATH=.
+5. uv pip install setuptools
+6. uv pip install ldap/python_ldap-3.4.4-cp311-cp311-win_amd64.whl
+7. fix makefile/setup.cfg/setup.py
+8. add test_requirements.txt
    - pytz>=2025.2
-8. uv pip install -r test_requirements.txt
-9. make install
-10. make test
-11. del build/dist/doc/ndscheduler.egg-info path
-12. uv pip install -e .
-13. uv run simple_scheduler/scheduler.py
+9. uv pip install -r test_requirements.txt
+10. make install
+11. make test
+12. del build/dist/doc/ndscheduler.egg-info path
+13. uv pip install -e .
+14. uv run simple_scheduler/scheduler.py
 
 ## update to python 3.11 (origin)
 
