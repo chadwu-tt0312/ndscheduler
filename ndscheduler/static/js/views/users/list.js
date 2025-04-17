@@ -1,5 +1,5 @@
 /**
- * Categories view.
+ * Users view.
  */
 
 require.config({
@@ -11,7 +11,7 @@ require.config({
         'datatables': 'vendor/jquery.dataTables',
 
         'utils': 'utils',
-        'categories-table-view': 'views/categories/table-view'
+        'users-table-view': 'views/users/table-view'
     },
 
     shim: {
@@ -29,16 +29,16 @@ require.config({
     }
 });
 
-define(['categories-table-view',
+define(['users-table-view',
     'backbone',
-    'bootstrap'], function (CategoriesTableView) {
+    'bootstrap'], function (UsersTableView) {
 
         'use strict';
 
         return Backbone.View.extend({
             initialize: function () {
-                // 初始化分類表格視圖
-                new CategoriesTableView();
+                // 初始化用戶表格視圖
+                new UsersTableView();
             }
         });
     }); 

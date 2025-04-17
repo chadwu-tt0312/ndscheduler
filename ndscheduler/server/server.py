@@ -21,6 +21,7 @@ from ndscheduler.server.handlers import index
 from ndscheduler.server.handlers import jobs
 from ndscheduler.server.handlers import auth
 from ndscheduler.server.handlers import categories
+from ndscheduler.server.handlers import users
 
 # 確保日誌目錄存在
 if not os.path.exists("logs"):
@@ -61,14 +62,20 @@ class SchedulerServer:
             (r"/login", index.LoginHandler),
             # Auth APIs
             (r"/api/%s/auth/login" % self.VERSION, auth.LoginHandler),
+            # Users APIs
+            (r"/api/%s/users" % self.VERSION, users.UsersHandler),
+            (r"/api/%s/users/current" % self.VERSION, users.CurrentUserHandler),
+            (r"/api/%s/users/(.*)" % self.VERSION, users.UserHandler),
             # Categories APIs
             (r"/api/%s/categories" % self.VERSION, categories.CategoriesHandler),
             (r"/api/%s/categories/(.*)" % self.VERSION, categories.CategoryHandler),
-            # APIs
+            # Jobs APIs
             (r"/api/%s/jobs" % self.VERSION, jobs.Handler),
             (r"/api/%s/jobs/(.*)" % self.VERSION, jobs.Handler),
+            # Executions APIs
             (r"/api/%s/executions" % self.VERSION, executions.Handler),
             (r"/api/%s/executions/(.*)" % self.VERSION, executions.Handler),
+            # Logs APIs
             (r"/api/%s/logs" % self.VERSION, audit_logs.Handler),
         ]
         self.application = tornado.web.Application(URLS, **self.tornado_settings)

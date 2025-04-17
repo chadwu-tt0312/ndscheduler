@@ -9,18 +9,22 @@ require.config({
     'jquery': 'vendor/jquery',
     'underscore': 'vendor/underscore',
     'backbone': 'vendor/backbone',
-    'moment': 'vendor/moment'
+    'moment': 'vendor/moment',
+    'moment-timezone': 'vendor/moment-timezone-with-data'
   },
 
   shim: {
     'backbone': {
       deps: ['underscore', 'jquery'],
       exports: 'Backbone'
+    },
+    'moment-timezone': {
+      deps: ['moment']
     }
   }
 });
 
-define(['backbone', 'vendor/moment-timezone-with-data'], function(backbone, moment) {
+define(['backbone', 'moment-timezone'], function (backbone, moment) {
   'use strict';
 
   return Backbone.Model.extend({
@@ -30,10 +34,10 @@ define(['backbone', 'vendor/moment-timezone-with-data'], function(backbone, mome
      *
      * @return {string} schedule string for this job.
      */
-    getScheduleString: function() {
+    getScheduleString: function () {
       return 'minute: ' + this.get('minute') + ', hour: ' + this.get('hour') +
-          ', day: ' + this.get('day') + ', month: ' + this.get('month') +
-          ', day of week: ' + this.get('day_of_week');
+        ', day: ' + this.get('day') + ', month: ' + this.get('month') +
+        ', day of week: ' + this.get('day_of_week');
     },
 
     /**
@@ -41,7 +45,7 @@ define(['backbone', 'vendor/moment-timezone-with-data'], function(backbone, mome
      *
      * @return {string} a json string for arguments to run this job.
      */
-    getPubArgsString: function() {
+    getPubArgsString: function () {
       return JSON.stringify(this.get('pub_args'));
     },
 
@@ -50,7 +54,7 @@ define(['backbone', 'vendor/moment-timezone-with-data'], function(backbone, mome
      *
      * @return {string} html string for next run time of this job.
      */
-    getNextRunTimeHTMLString: function() {
+    getNextRunTimeHTMLString: function () {
       var nextRunTime = this.get('next_run_time');
       var returnString = '';
       if (!nextRunTime) {
@@ -58,10 +62,10 @@ define(['backbone', 'vendor/moment-timezone-with-data'], function(backbone, mome
       } else {
         var tz = $('#display-tz').val();
         returnString = '<span class="success-color">' + moment().format('Z') + ': ' +
-            moment(nextRunTime).format('MM/DD/YYYY HH:mm:ss') +
-            '</span><br><span class="scheduled-color">UTC: ' +
-            moment(nextRunTime).utc().format('MM/DD/YYYY HH:mm:ss') +
-            '</span>';
+          moment(nextRunTime).format('YYYY/MM/DD HH:mm:ss') +
+          '</span><br><span class="scheduled-color">UTC: ' +
+          moment(nextRunTime).utc().format('YYYY/MM/DD HH:mm:ss') +
+          '</span>';
       }
       return returnString;
     },
@@ -71,7 +75,7 @@ define(['backbone', 'vendor/moment-timezone-with-data'], function(backbone, mome
      *
      * @return {string} "yes" or "no".
      */
-    getActiveString: function() {
+    getActiveString: function () {
       var nextRunTime = this.get('next_run_time');
       return nextRunTime ? 'yes' : 'no';
     }

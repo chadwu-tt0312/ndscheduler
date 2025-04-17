@@ -74,17 +74,11 @@
 
                     if (response.ok) {
                         console.log("登入成功，正在儲存數據...");
-                        // 儲存 token 和使用者資訊
-                        localStorage.setItem("token", data.token);
-                        localStorage.setItem("user", JSON.stringify(data.user));
+                        // 不再使用 localStorage，cookie 將由伺服器端在回應中設置
 
                         console.log("正在重定向到主頁...");
-                        // 使用表單提交方式重定向
-                        const form = document.createElement("form");
-                        form.method = "GET";
-                        form.action = "/";
-                        document.body.appendChild(form);
-                        form.submit();
+                        // 直接重定向到主頁
+                        window.location.href = "/";
                     } else {
                         console.error("登入失敗:", data.error);
                         errorMessage.textContent = data.error || "登入失敗";

@@ -188,9 +188,51 @@ Error fetching categories: {"error": {"code": 500, "message": "Internal Server E
 
 ## q-16
 
+請詳細說明 jobs 頁面資料顯示的詳細過程。
+從切換到 jobs 頁面，然後資料如何取得，如何顯示。一步一步的描述清楚。
+
 ---
 
 ## answer-16
+
+2025-04-17_00-36-jobs-page-data-display-process.md
+
+---
+
+## q-17 (FAIL)
+
+為何 jobs 頁面資料顯示錯誤(無資料)，實際有一筆。
+
+---
+
+## q-18
+
+jobs & executions & logs 都是用 *.js 檔案處理邏輯，users & categories 卻將邏輯部分寫在 index.html
+請參考 jobs & executions & logs 的寫法修改 users & categories
+
+---
+
+## q-9
+
+---
+
+## answer-9
+
+---
+
+## q-9
+
+---
+
+## answer-9
+
+---
+
+## q-9
+
+---
+
+## answer-9
 
 ---
 

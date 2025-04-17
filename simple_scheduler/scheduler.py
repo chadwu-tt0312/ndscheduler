@@ -1,6 +1,11 @@
 """Run the scheduler process."""
 
-from ndscheduler.server import server
+import os
+
+os.environ["NDSCHEDULER_SETTINGS_MODULE"] = "simple_scheduler.settings"
+os.environ["PYTHONPATH"] = "."
+
+from ndscheduler.server import server  # noqa: E402
 
 
 class SimpleServer(server.SchedulerServer):

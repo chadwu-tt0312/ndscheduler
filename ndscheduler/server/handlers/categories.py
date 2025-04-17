@@ -12,9 +12,13 @@ logger = logging.getLogger(__name__)
 
 def check_table_exists(session, table):
     """檢查表格是否存在，如果不存在則拋出異常。"""
-    if not table.exists():
-        logger.error("Categories table does not exist")
-        raise tornado.web.HTTPError(500, "Database table not initialized")
+    try:
+        if not table.exists(session.get_bind()):
+            logger.error("Categories table does not exist")
+            raise tornado.web.HTTPError(500, "Database table not initialized")
+    except Exception as e:
+        logger.error(f"Error checking table existence: {str(e)}", exc_info=True)
+        raise tornado.web.HTTPError(500, "Database error")
 
 
 class CategoriesHandler(base.BaseHandler):
@@ -27,13 +31,22 @@ class CategoriesHandler(base.BaseHandler):
         """
         try:
             session = self.get_session()
-            categories_table = tables.get_categories_table(session.get_bind().metadata)
-            check_table_exists(session, categories_table)
+            categories_table = tables.get_categories_table(
+                session.get_bind().metadata,
+                self.datastore.table_names.get("categories_tablename", "scheduler_categories"),
+            )
+
+            try:
+                if not categories_table.exists(session.get_bind()):
+                    raise tornado.web.HTTPError(500, "Categories table does not exist")
+            except Exception as e:
+                logger.error(f"Error checking categories table: {str(e)}", exc_info=True)
+                raise tornado.web.HTTPError(500, "Database error")
 
             categories = session.query(categories_table).all()
             logger.info(f"Found {len(categories)} categories")
 
-            self.write_json(
+            self.write(
                 {
                     "categories": [
                         {
@@ -49,11 +62,11 @@ class CategoriesHandler(base.BaseHandler):
             )
         except tornado.web.HTTPError as e:
             self.set_status(e.status_code)
-            self.write_json({"error": str(e)})
+            self.write({"error": str(e)})
         except Exception as e:
             logger.error(f"Error getting categories: {str(e)}", exc_info=True)
             self.set_status(500)
-            self.write_json({"error": "Internal server error"})
+            self.write({"error": "Internal server error"})
 
     @tornado.web.authenticated
     def post(self):
@@ -78,8 +91,17 @@ class CategoriesHandler(base.BaseHandler):
                 raise tornado.web.HTTPError(400, "Name is required")
 
             session = self.get_session()
-            categories_table = tables.get_categories_table(session.get_bind().metadata)
-            check_table_exists(session, categories_table)
+            categories_table = tables.get_categories_table(
+                session.get_bind().metadata,
+                self.datastore.table_names.get("categories_tablename", "scheduler_categories"),
+            )
+
+            try:
+                if not categories_table.exists(session.get_bind()):
+                    raise tornado.web.HTTPError(500, "Categories table does not exist")
+            except Exception as e:
+                logger.error(f"Error checking categories table: {str(e)}", exc_info=True)
+                raise tornado.web.HTTPError(500, "Database error")
 
             # 檢查名稱是否已存在
             existing = session.query(categories_table).filter(categories_table.c.name == name).first()
@@ -91,14 +113,14 @@ class CategoriesHandler(base.BaseHandler):
             session.commit()
             logger.info(f"Created new category: {name}")
 
-            self.write_json({"id": result.inserted_primary_key[0]})
+            self.write({"id": result.inserted_primary_key[0]})
         except tornado.web.HTTPError as e:
             self.set_status(e.status_code)
-            self.write_json({"error": str(e)})
+            self.write({"error": str(e)})
         except Exception as e:
             logger.error(f"Error creating category: {str(e)}", exc_info=True)
             self.set_status(500)
-            self.write_json({"error": "Internal server error"})
+            self.write({"error": "Internal server error"})
 
 
 class CategoryHandler(base.BaseHandler):
@@ -114,15 +136,24 @@ class CategoryHandler(base.BaseHandler):
         """
         try:
             session = self.get_session()
-            categories_table = tables.get_categories_table(session.get_bind().metadata)
-            check_table_exists(session, categories_table)
+            categories_table = tables.get_categories_table(
+                session.get_bind().metadata,
+                self.datastore.table_names.get("categories_tablename", "scheduler_categories"),
+            )
+
+            try:
+                if not categories_table.exists(session.get_bind()):
+                    raise tornado.web.HTTPError(500, "Categories table does not exist")
+            except Exception as e:
+                logger.error(f"Error checking categories table: {str(e)}", exc_info=True)
+                raise tornado.web.HTTPError(500, "Database error")
 
             category = session.query(categories_table).filter(categories_table.c.id == category_id).first()
             if not category:
                 raise tornado.web.HTTPError(404, "Category not found")
 
             logger.info(f"Retrieved category: {category.name}")
-            self.write_json(
+            self.write(
                 {
                     "id": category.id,
                     "name": category.name,
@@ -133,11 +164,11 @@ class CategoryHandler(base.BaseHandler):
             )
         except tornado.web.HTTPError as e:
             self.set_status(e.status_code)
-            self.write_json({"error": str(e)})
+            self.write({"error": str(e)})
         except Exception as e:
             logger.error(f"Error getting category {category_id}: {str(e)}", exc_info=True)
             self.set_status(500)
-            self.write_json({"error": "Internal server error"})
+            self.write({"error": "Internal server error"})
 
     @tornado.web.authenticated
     def put(self, category_id):
@@ -165,8 +196,17 @@ class CategoryHandler(base.BaseHandler):
                 raise tornado.web.HTTPError(400, "Name is required")
 
             session = self.get_session()
-            categories_table = tables.get_categories_table(session.get_bind().metadata)
-            check_table_exists(session, categories_table)
+            categories_table = tables.get_categories_table(
+                session.get_bind().metadata,
+                self.datastore.table_names.get("categories_tablename", "scheduler_categories"),
+            )
+
+            try:
+                if not categories_table.exists(session.get_bind()):
+                    raise tornado.web.HTTPError(500, "Categories table does not exist")
+            except Exception as e:
+                logger.error(f"Error checking categories table: {str(e)}", exc_info=True)
+                raise tornado.web.HTTPError(500, "Database error")
 
             # 檢查 category 是否存在
             category = session.query(categories_table).filter(categories_table.c.id == category_id).first()
@@ -191,14 +231,14 @@ class CategoryHandler(base.BaseHandler):
             session.commit()
             logger.info(f"Updated category {category_id}: {name}")
 
-            self.write_json({"id": category_id})
+            self.write({"id": category_id})
         except tornado.web.HTTPError as e:
             self.set_status(e.status_code)
-            self.write_json({"error": str(e)})
+            self.write({"error": str(e)})
         except Exception as e:
             logger.error(f"Error updating category {category_id}: {str(e)}", exc_info=True)
             self.set_status(500)
-            self.write_json({"error": "Internal server error"})
+            self.write({"error": "Internal server error"})
 
     @tornado.web.authenticated
     def delete(self, category_id):
@@ -215,8 +255,17 @@ class CategoryHandler(base.BaseHandler):
                 raise tornado.web.HTTPError(403, "Permission denied")
 
             session = self.get_session()
-            categories_table = tables.get_categories_table(session.get_bind().metadata)
-            check_table_exists(session, categories_table)
+            categories_table = tables.get_categories_table(
+                session.get_bind().metadata,
+                self.datastore.table_names.get("categories_tablename", "scheduler_categories"),
+            )
+
+            try:
+                if not categories_table.exists(session.get_bind()):
+                    raise tornado.web.HTTPError(500, "Categories table does not exist")
+            except Exception as e:
+                logger.error(f"Error checking categories table: {str(e)}", exc_info=True)
+                raise tornado.web.HTTPError(500, "Database error")
 
             # 檢查 category 是否存在
             category = session.query(categories_table).filter(categories_table.c.id == category_id).first()
@@ -228,11 +277,11 @@ class CategoryHandler(base.BaseHandler):
             session.commit()
             logger.info(f"Deleted category {category_id}")
 
-            self.write_json({"id": category_id})
+            self.write({"id": category_id})
         except tornado.web.HTTPError as e:
             self.set_status(e.status_code)
-            self.write_json({"error": str(e)})
+            self.write({"error": str(e)})
         except Exception as e:
             logger.error(f"Error deleting category {category_id}: {str(e)}", exc_info=True)
             self.set_status(500)
-            self.write_json({"error": "Internal server error"})
+            self.write({"error": "Internal server error"})

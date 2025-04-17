@@ -1,4 +1,4 @@
-"""Some convenient utils functions."""
+"""Utils for scheduler package."""
 
 import datetime
 import os
@@ -13,6 +13,8 @@ import pytz
 from ndscheduler.corescheduler import constants
 
 logger = logging.getLogger(__name__)
+# 添加一個專門記錄錯誤的 logger
+error_logger = logging.getLogger("error_logger")
 
 
 def import_from_path(path):
@@ -106,6 +108,16 @@ def get_pid():
     return os.getpid()
 
 
+def log_error(message, exc_info=False):
+    """使用錯誤日誌記錄器記錄錯誤訊息。
+
+    Args:
+        message (str): 錯誤訊息
+        exc_info (bool, optional): 是否包含異常詳細信息。預設為 False。
+    """
+    error_logger.error(message, exc_info=exc_info)
+
+
 def get_datastore_instance(datastore_class_path, db_config=None, db_tablenames=None):
     datastore_class = import_from_path(datastore_class_path)
     return datastore_class.get_instance(db_config, db_tablenames)
@@ -124,8 +136,8 @@ def get_job_class(job_class_string):
     try:
         return import_from_path(job_class_string)
     except (ImportError, AttributeError) as e:
-        logger.error(f"導入任務類別失敗 {job_class_string}: {str(e)}", exc_info=True)
+        log_error(f"導入任務類別失敗 {job_class_string}: {str(e)}", exc_info=True)
         return None
     except Exception as e:
-        logger.error(f"導入任務類別時發生未預期的錯誤 {job_class_string}: {str(e)}", exc_info=True)
+        log_error(f"導入任務類別時發生未預期的錯誤 {job_class_string}: {str(e)}", exc_info=True)
         return None

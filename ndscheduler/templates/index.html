@@ -16,14 +16,7 @@
         <link href="static/css/vendor/select2-bootstrap.css" rel="stylesheet" type="text/css" />
         <link href="static/css/main.css" rel="stylesheet" type="text/css" />
 
-        <!-- 添加必要的 JavaScript 依賴 -->
-        <script src="static/js/vendor/jquery.js"></script>
-        <script src="static/js/vendor/jquery.dataTables.js"></script>
-        <script src="static/js/vendor/bootstrap.js"></script>
-        <script src="static/js/vendor/moment.js"></script>
-        <script src="static/js/vendor/moment-timezone-with-data.js"></script>
-        <script src="static/js/vendor/spin.js"></script>
-        <script src="/static/js/vendor/require.js" data-main="/static/js/app"></script>
+        <script src="static/js/vendor/require.js" data-main="/static/js/app"></script>
 
         <script id="jobs-meta-info" type="application/json">
             {% raw jobs_meta_info %}
@@ -34,334 +27,6 @@
             // DEFAULT_CACHE_BUSTER will be replaced with a release token by the
             // build script. cacheBuster is used by requirejs.
             cacheBuster = DEFAULT_CACHE_BUSTER;
-            // 從 cookie 中獲取用戶資訊
-            function getCookie(name) {
-                var value = "; " + document.cookie;
-                var parts = value.split("; " + name + "=");
-                if (parts.length == 2) {
-                    var cookieValue = parts.pop().split(";").shift();
-                    // 如果 cookie 值包含 '|'，表示是特殊格式的 token
-                    if (cookieValue.includes("|")) {
-                        var tokenParts = cookieValue.split("|");
-                        // token 值在第 5 個部分（索引 4）
-                        var tokenWithLength = tokenParts[4];
-                        // 如果 token 包含長度前綴（例如 "288:"），去除它
-                        if (tokenWithLength.includes(":")) {
-                            return tokenWithLength.split(":")[1];
-                        }
-                        return tokenWithLength;
-                    }
-                    // 如果 cookie 值包含長度前綴（例如 "288:"），去除它
-                    if (cookieValue.includes(":")) {
-                        return cookieValue.split(":")[1];
-                    }
-                    return cookieValue;
-                }
-                return null;
-            }
-            // 解析 JWT token 中的用戶資訊
-            function parseJwt(token) {
-                try {
-                    if (!token) {
-                        console.log("No token found");
-                        return null;
-                    }
-                    // console.log("Processing token:", token);
-
-                    // 解碼 base64url 格式的 token
-                    function base64UrlDecode(str) {
-                        try {
-                            // 將 base64url 轉換為標準 base64
-                            str = str.replace(/-/g, "+").replace(/_/g, "/");
-                            // 添加填充
-                            while (str.length % 4) {
-                                str += "=";
-                            }
-                            // 先嘗試 UTF-8 解碼
-                            try {
-                                return decodeURIComponent(
-                                    Array.prototype.map
-                                        .call(atob(str), function (c) {
-                                            return "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2);
-                                        })
-                                        .join("")
-                                );
-                            } catch (e) {
-                                // 如果 UTF-8 解碼失敗，直接返回原始解碼結果
-                                return atob(str);
-                            }
-                        } catch (e) {
-                            console.error("Base64 decode error:", e);
-                            return null;
-                        }
-                    }
-
-                    // 先解碼整個 token
-                    var decodedToken = base64UrlDecode(token);
-                    // console.log("Decoded token:", decodedToken);
-
-                    // 檢查解碼後的 token 是否是 JWT 格式
-                    if (decodedToken.includes("eyJ")) {
-                        // console.log("Found JWT format in decoded token");
-                        // 使用解碼後的 token 進行 JWT 解析
-                        var parts = decodedToken.split(".");
-                        if (parts.length === 3) {
-                            try {
-                                var payload = JSON.parse(base64UrlDecode(parts[1]));
-                                // console.log("Decoded JWT payload:", payload);
-                                return payload;
-                            } catch (e) {
-                                console.error("Failed to parse JWT payload:", e);
-                            }
-                        }
-                    }
-
-                    // 如果不是 JWT 格式或解析失敗，嘗試直接解析
-                    try {
-                        var payload = JSON.parse(decodedToken);
-                        console.log("Parsed payload directly:", payload);
-                        return payload;
-                    } catch (e) {
-                        console.error("Failed to parse token as JSON:", e);
-                        return null;
-                    }
-                } catch (e) {
-                    console.error("Token parsing error:", e);
-                    return null;
-                }
-            }
-            // 刪除 cookie
-            function deleteCookie(name) {
-                document.cookie = name + "=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/;";
-            }
-            // 登出功能
-            function logout() {
-                deleteCookie("token");
-                window.location.href = "/login";
-            }
-            // 檢查用戶是否為管理員
-            var token = getCookie("token");
-            var isAdmin = false;
-            var username = "";
-            if (token) {
-                var user = parseJwt(token);
-                isAdmin = user && user.is_admin === true;
-                username = user ? user.username : "";
-            } else {
-                // 如果沒有 token，重定向到登入頁面
-                if (window.location.pathname !== "/login") {
-                    window.location.href = "/login";
-                }
-            }
-
-            // 等待 jQuery 和其他依賴載入完成
-            document.addEventListener("DOMContentLoaded", function () {
-                // 確保 jQuery 和 DataTables 已載入
-                if (typeof jQuery !== "undefined" && typeof jQuery.fn.DataTable !== "undefined") {
-                    // 初始化頁面
-                    initializePage();
-                } else {
-                    console.error("jQuery or DataTables is not loaded");
-                }
-            });
-
-            // 將所有初始化邏輯移到這個函數中
-            function initializePage() {
-                // 更新網站標題
-                var websiteTitle = document.getElementById("website-title");
-                if (websiteTitle && username) {
-                    websiteTitle.textContent = "{{ WEBSITE_TITLE }}@" + username;
-                }
-
-                // 顯示/隱藏管理員選項
-                if (isAdmin === true) {
-                    var adminElements = document.getElementsByClassName("admin-only-dropdown");
-                    Array.from(adminElements).forEach(function (element) {
-                        if (element) {
-                            element.style.cssText = "display: block !important";
-                            console.log("顯示管理員選項:", element, "display = block !important");
-                        }
-                    });
-                }
-
-                // 載入 Categories 資料的函數
-                window.loadCategories = function () {
-                    fetch("/api/v1/categories")
-                        .then((response) => response.json())
-                        .then((data) => {
-                            var table = $("#categories-table").DataTable();
-                            table.clear();
-                            if (data && data.categories) {
-                                table.rows.add(data.categories).draw();
-                            }
-                        })
-                        .catch((error) => {
-                            console.error("Error loading categories:", error);
-                        });
-                };
-
-                // 頁面切換處理
-                window.showPage = function (pageId) {
-                    // 處理側邊欄容器
-                    var sidebarContainer = document.querySelector(".sidebar");
-                    if (sidebarContainer) {
-                        sidebarContainer.style.display = ["users", "categories"].includes(pageId) ? "none" : "block";
-                    }
-
-                    // 調整主內容區域的類別
-                    var mainContent = document.querySelector(".main");
-                    if (mainContent) {
-                        if (["users", "categories"].includes(pageId)) {
-                            mainContent.className = "col-sm-12 col-md-12 main";
-                        } else {
-                            mainContent.className = "col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main";
-                        }
-                    }
-
-                    // 隱藏所有頁面
-                    var pages = {
-                        jobs: ["jobs-page-content", "jobs-page-sidebar"],
-                        executions: ["executions-page-content", "executions-page-sidebar"],
-                        logs: ["logs-page-content", "logs-page-sidebar"],
-                        users: ["users-page-content"],
-                        categories: ["categories-page-content"],
-                    };
-
-                    // 隱藏所有頁面和側邊欄
-                    Object.values(pages)
-                        .flat()
-                        .forEach(function (elementId) {
-                            var element = document.getElementById(elementId);
-                            if (element) {
-                                element.style.display = "none";
-                            }
-                        });
-
-                    // 顯示當前頁面
-                    if (pages[pageId]) {
-                        pages[pageId].forEach(function (elementId) {
-                            var element = document.getElementById(elementId);
-                            if (element) {
-                                if ((pageId === "users" || pageId === "categories") && !isAdmin) {
-                                    return;
-                                }
-                                element.style.display = "block";
-                            }
-                        });
-                    }
-
-                    // 更新導航標籤狀態
-                    document.querySelectorAll(".nav li").forEach(function (tab) {
-                        tab.classList.remove("active");
-                    });
-                    var currentTab = document.getElementById(pageId + "-tab");
-                    if (currentTab) {
-                        currentTab.classList.add("active");
-                    }
-
-                    // 更新頁面標題
-                    var subHeader = document.querySelector(".sub-header");
-                    if (subHeader) {
-                        var titles = {
-                            jobs: "Jobs",
-                            executions: "Executions",
-                            logs: "Audit Logs",
-                            users: "Users",
-                            categories: "Categories",
-                        };
-                        subHeader.textContent = titles[pageId] || pageId;
-                    }
-
-                    // 初始化和更新管理員頁面的表格
-                    if (pageId === "categories") {
-                        // 初始化表格（如果尚未初始化）
-                        if (!$.fn.DataTable.isDataTable("#categories-table")) {
-                            $("#categories-table").DataTable({
-                                columns: [
-                                    { data: "id" },
-                                    { data: "name" },
-                                    { data: "description" },
-                                    { data: "created_at" },
-                                    { data: "updated_at" },
-                                    {
-                                        data: null,
-                                        render: function (data, type, row) {
-                                            return (
-                                                '<button class="btn btn-primary btn-sm edit-category">Edit</button> ' +
-                                                '<button class="btn btn-danger btn-sm delete-category">Delete</button>'
-                                            );
-                                        },
-                                    },
-                                ],
-                                order: [[0, "desc"]],
-                                pageLength: 10,
-                                searching: true,
-                                info: true,
-                            });
-                        }
-                        // 載入資料
-                        loadCategories();
-                    }
-                };
-
-                // 確保 Bootstrap 下拉選單正常工作
-                $(document).ready(function () {
-                    $(".dropdown-toggle").dropdown();
-                });
-
-                // 根據 URL hash 顯示相應頁面
-                window.handleHashChange = function () {
-                    var hash = window.location.hash.substring(1) || "jobs";
-                    showPage(hash);
-                };
-
-                // 綁定登出按鈕事件
-                var logoutBtn = document.getElementById("logout-btn");
-                if (logoutBtn) {
-                    logoutBtn.addEventListener("click", function (e) {
-                        e.preventDefault();
-                        logout();
-                    });
-                }
-
-                // 監聽 hash 變化
-                window.addEventListener("hashchange", handleHashChange);
-
-                // 初始頁面載入時顯示相應內容
-                handleHashChange();
-            }
-
-            // 初始化 DataTable
-            function initJobsTable() {
-                if (!$.fn.DataTable.isDataTable("#jobs-table")) {
-                    $("#jobs-table").DataTable({
-                        columns: [
-                            {
-                                data: "name",
-                                render: function (data, type, row) {
-                                    return '<a href="#" class="job-name">' + data + "</a>";
-                                },
-                            },
-                            { data: "schedule" },
-                            { data: "next_run" },
-                            {
-                                data: null,
-                                render: function (data, type, row) {
-                                    return (
-                                        '<button class="btn btn-primary custom-run-btn" data-job-id="' +
-                                        row.job_id +
-                                        '">Custom Run</button>'
-                                    );
-                                },
-                            },
-                        ],
-                        order: [[0, "asc"]],
-                        pageLength: 10,
-                        searching: true,
-                        info: true,
-                    });
-                }
-            }
         </script>
     </head>
     <body>
@@ -389,18 +54,18 @@
                         <li class="dropdown">
                             <a href="#" class="dropdown-toggle" data-toggle="dropdown">Info<i class="caret"></i></a>
                             <ul class="dropdown-menu">
-                                <li class="admin-only-dropdown">
-                                    <a href="#users">Users</a>
-                                </li>
-                                <li class="admin-only-dropdown">
-                                    <a href="#categories">Categories</a>
-                                </li>
                                 <li>
                                     <a href="https://github.com/Nextdoor/ndscheduler" target="_blank"
                                         >ndscheduler GitHub page</a
                                     >
                                 </li>
                                 <li class="divider"></li>
+                                <li class="admin-only-dropdown">
+                                    <a href="#users">Users</a>
+                                </li>
+                                <li class="admin-only-dropdown">
+                                    <a href="#categories">Categories</a>
+                                </li>
                                 <li>
                                     <a href="#" id="logout-btn">Logout</a>
                                 </li>
@@ -609,12 +274,39 @@
         </div>
 
         <style>
-            .admin-only {
+            /* 使用更精確的選擇器以確保 JavaScript 可以覆蓋樣式 */
+            body:not(.admin-mode) .admin-only {
                 display: none;
             }
-            .admin-only-dropdown {
+            body:not(.admin-mode) .admin-only-dropdown {
                 display: none;
             }
         </style>
+
+        <script>
+            // 在頁面載入完成後執行，確保與 page-manager.js 和 auth.js 的加載順序無關
+            document.addEventListener("DOMContentLoaded", function () {
+                // 檢查 cookie 中是否有 token
+                var token = document.cookie.replace(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/, "$1");
+                // 如果有 token，確保頁面不會閃爍
+                if (token) {
+                    // 先隱藏所有頁面內容
+                    var pages = [
+                        "jobs-page-content",
+                        "executions-page-content",
+                        "logs-page-content",
+                        "users-page-content",
+                        "categories-page-content",
+                        "jobs-page-sidebar",
+                        "executions-page-sidebar",
+                        "logs-page-sidebar",
+                    ];
+                    pages.forEach(function (pageId) {
+                        var element = document.getElementById(pageId);
+                        if (element) element.style.display = "none";
+                    });
+                }
+            });
+        </script>
     </body>
 </html>

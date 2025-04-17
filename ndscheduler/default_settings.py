@@ -155,11 +155,12 @@ LOGGING_CONF = {
             "encoding": "utf8",
         },
     },
-    "root": {"level": "INFO", "handlers": ["console", "file", "error_file"]},
+    "root": {"level": "INFO", "handlers": ["console", "file"]},
     "loggers": {
-        "ndscheduler": {"handlers": ["console", "file", "error_file"], "level": "INFO", "propagate": False},
-        "apscheduler": {"handlers": ["console", "file", "error_file"], "level": "INFO", "propagate": False},
-        "tornado": {"handlers": ["console", "file", "error_file"], "level": "INFO", "propagate": False},
+        "ndscheduler": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
+        "apscheduler": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
+        "tornado": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
+        "error_logger": {"handlers": ["console", "error_file"], "level": "ERROR", "propagate": False},
     },
 }
 

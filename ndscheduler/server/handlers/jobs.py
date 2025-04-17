@@ -13,6 +13,7 @@ from ndscheduler.corescheduler import utils
 from ndscheduler.server.handlers import base
 
 logger = logging.getLogger(__name__)
+error_logger = logging.getLogger("error_logger")
 
 
 class Handler(base.BaseHandler):
@@ -22,10 +23,15 @@ class Handler(base.BaseHandler):
 
         It's a blocking operation.
         """
+        # logger.info("開始獲取任務...")
         jobs = self.scheduler_manager.get_jobs()
+        # logger.info(f"從 scheduler_manager 獲取到的任務數量： {len(jobs)}")
         return_json = []
         for job in jobs:
-            return_json.append(self._build_job_dict(job))
+            job_dict = self._build_job_dict(job)
+            return_json.append(job_dict)
+            # logger.info(f"任務詳情：{job_dict}")
+        # logger.info(f"最終返回的任務數據：{return_json}")
         return {"jobs": return_json}
 
     def _build_job_dict(self, job):
@@ -86,7 +92,8 @@ class Handler(base.BaseHandler):
         job = self.scheduler_manager.get_job(job_id)
         if not job:
             self.set_status(400)
-            return {"error": "Job not found: %s" % job_id}
+            utils.log_error(f"找不到任務：{job_id}")
+            raise ValueError(f"Job not found: {job_id}")
         return self._build_job_dict(job)
 
     @tornado.concurrent.run_on_executor
@@ -215,9 +222,11 @@ class Handler(base.BaseHandler):
         :rtype: str
         """
         if old_job[item] != new_job[item]:
-            return (
-                '<b>%s</b>: <font color="red">%s</font> =>' ' <font color="green">%s</font><br>'
-            ) % (item, old_job[item], new_job[item])
+            return ('<b>%s</b>: <font color="red">%s</font> =>' ' <font color="green">%s</font><br>') % (
+                item,
+                old_job[item],
+                new_job[item],
+            )
         return ""
 
     def _generate_description_for_modify(self, old_job, new_job):
@@ -246,10 +255,8 @@ class Handler(base.BaseHandler):
             return json.dumps(description, ensure_ascii=False)
 
         except Exception as e:
-            logger.error(f"生成修改描述時發生錯誤：{str(e)}", exc_info=True)
-            return json.dumps(
-                {"error": "無法生成修改描述", "timestamp": datetime.utcnow().isoformat()}
-            )
+            utils.log_error(f"生成修改描述時發生錯誤：{str(e)}", exc_info=True)
+            return json.dumps({"error": "無法生成修改描述", "timestamp": datetime.utcnow().isoformat()})
 
     def _modify_job(self, job_id):
         """修改一個任務。
@@ -266,7 +273,7 @@ class Handler(base.BaseHandler):
             # 取得原始任務資訊
             old_job = self.scheduler_manager.get_job(job_id)
             if not old_job:
-                logger.error(f"找不到任務：{job_id}")
+                utils.log_error(f"找不到任務：{job_id}")
                 self.set_status(404)
                 return {"error": f"找不到任務：{job_id}"}
 
@@ -312,9 +319,7 @@ class Handler(base.BaseHandler):
                         job_class = utils.get_job_class(current_settings["job_class_string"])
                         if not job_class:
                             self.set_status(400)
-                            return {
-                                "error": f"無效的任務類別：{current_settings['job_class_string']}"
-                            }
+                            return {"error": f"無效的任務類別：{current_settings['job_class_string']}"}
 
                     # 處理任務參數
                     if "pub_args" in self.json_args:
@@ -353,18 +358,18 @@ class Handler(base.BaseHandler):
 
                         # 如果舊任務還存在，保持不變
                         if self.scheduler_manager.get_job(job_id):
-                            logger.error(f"創建新任務失敗，保持原任務不變：{str(e)}")
+                            utils.log_error(f"創建新任務失敗，保持原任務不變：{str(e)}")
                             self.set_status(400)
                             return {"error": f"修改任務失敗：{str(e)}"}
                         else:
                             # 如果舊任務已被刪除，嘗試恢復
                             try:
                                 self.scheduler_manager.add_job(job_id=job_id, **old_job_dict)
-                                logger.error(f"創建新任務失敗，已恢復原任務：{str(e)}")
+                                utils.log_error(f"創建新任務失敗，已恢復原任務：{str(e)}")
                                 self.set_status(400)
                                 return {"error": f"修改任務失敗，已恢復原任務：{str(e)}"}
                             except Exception as restore_error:
-                                logger.error(f"恢復原任務失敗：{str(restore_error)}")
+                                utils.log_error(f"恢復原任務失敗：{str(restore_error)}")
                                 self.set_status(500)
                                 return {"error": "修改任務失敗且無法恢復原任務"}
 
@@ -387,7 +392,7 @@ class Handler(base.BaseHandler):
                 # 取得更新後的任務資訊
                 new_job = self.scheduler_manager.get_job(job_id)
                 if not new_job:
-                    logger.error(f"任務修改後無法取得：{job_id}")
+                    utils.log_error(f"任務修改後無法取得：{job_id}")
                     self.set_status(500)
                     return {"error": "任務修改失敗"}
 
@@ -409,12 +414,12 @@ class Handler(base.BaseHandler):
                 return new_job_dict
 
             except Exception as e:
-                logger.error(f"修改任務時發生錯誤：{str(e)}", exc_info=True)
+                utils.log_error(f"修改任務時發生錯誤：{str(e)}", exc_info=True)
                 self.set_status(400)
-                return {"error": str(e)}
+                return {"error": f"Failed to modify job {job_id}: {str(e)}"}
 
         except Exception as e:
-            logger.error(f"修改任務時發生未預期的錯誤：{str(e)}", exc_info=True)
+            utils.log_error(f"修改任務時發生未預期的錯誤：{str(e)}", exc_info=True)
             self.set_status(500)
             return {"error": f"修改任務失敗：{str(e)}"}
 
@@ -476,9 +481,7 @@ class Handler(base.BaseHandler):
             self.scheduler_manager.pause_job(job_id)
 
             # 記錄稽核日誌
-            self.datastore.add_audit_log(
-                job_id, job["name"], constants.AUDIT_LOG_PAUSED, user=self.username
-            )
+            self.datastore.add_audit_log(job_id, job["name"], constants.AUDIT_LOG_PAUSED, user=self.username)
 
             response = {"job_id": job_id}
             self.set_status(200)
@@ -511,9 +514,7 @@ class Handler(base.BaseHandler):
             self.scheduler_manager.resume_job(job_id)
 
             # 記錄稽核日誌
-            self.datastore.add_audit_log(
-                job_id, job["name"], constants.AUDIT_LOG_RESUMED, user=self.username
-            )
+            self.datastore.add_audit_log(job_id, job["name"], constants.AUDIT_LOG_RESUMED, user=self.username)
 
             response = {"job_id": job_id}
             self.set_status(200)
@@ -547,8 +548,5 @@ class Handler(base.BaseHandler):
         if not valid_cron_string:
             raise tornado.web.HTTPError(
                 400,
-                reason=(
-                    "Require at least one of following parameters:"
-                    " %s" % str(at_least_one_required_fields)
-                ),
+                reason=("Require at least one of following parameters:" " %s" % str(at_least_one_required_fields)),
             )
