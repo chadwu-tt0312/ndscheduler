@@ -3,6 +3,7 @@
 import json
 import logging
 from datetime import datetime
+import copy
 
 import tornado.concurrent
 import tornado.gen
@@ -13,7 +14,6 @@ from ndscheduler.corescheduler import utils
 from ndscheduler.server.handlers import base
 
 logger = logging.getLogger(__name__)
-error_logger = logging.getLogger("error_logger")
 
 
 class Handler(base.BaseHandler):
@@ -144,6 +144,10 @@ class Handler(base.BaseHandler):
         """
         self._validate_post_data()
 
+        # 確保 json_args 中包含當前用戶名稱
+        if "user" not in self.json_args:
+            self.json_args["user"] = self.username
+
         # 這是非阻塞函數
         # 它會立即返回 job_id
         job_id = self.scheduler_manager.add_job(**self.json_args)
@@ -217,10 +221,19 @@ class Handler(base.BaseHandler):
 
         :param dict old_job: Dict for old job.
         :param dict new_job: Dict for new job after modification.
-
+        :param str item: The field name to compare.
         :return: String for description.
         :rtype: str
         """
+        if item == "pub_args":
+            if not utils.are_job_args_equal(old_job[item], new_job[item]):
+                return ('<b>%s</b>: <font color="red">%s</font> =>' ' <font color="green">%s</font><br>') % (
+                    item,
+                    old_job[item],
+                    new_job[item],
+                )
+            return ""
+
         if old_job[item] != new_job[item]:
             return ('<b>%s</b>: <font color="red">%s</font> =>' ' <font color="green">%s</font><br>') % (
                 item,
@@ -259,15 +272,11 @@ class Handler(base.BaseHandler):
             return json.dumps({"error": "無法生成修改描述", "timestamp": datetime.utcnow().isoformat()})
 
     def _modify_job(self, job_id):
-        """修改一個任務。
+        """Modifies a job's info.
 
-        這是一個阻塞操作。
+        This is a blocking operation.
 
-        Args:
-            job_id (str): 任務 ID
-
-        Returns:
-            dict: 修改後的任務資訊
+        :param str job_id: String for a job id.
         """
         try:
             # 取得原始任務資訊
@@ -280,148 +289,184 @@ class Handler(base.BaseHandler):
             old_job_dict = self._build_job_dict(old_job)
             logger.info(f"準備修改任務，原始資訊：{old_job_dict}")
 
-            # 驗證修改參數
-            try:
-                # 檢查是否需要修改不可修改的屬性
-                immutable_attrs = {"job_class_string", "pub_args"}
-                has_immutable_changes = False
+            # 定義不可修改的屬性
+            immutable_attrs = {"job_class_string", "pub_args"}
+            has_immutable_changes = False
 
-                # 只有當不可修改屬性的值真的改變時，才需要重新創建任務
-                for attr in immutable_attrs:
-                    if attr in self.json_args:
-                        if str(self.json_args[attr]) != str(old_job_dict.get(attr)):
-                            has_immutable_changes = True
-                            break
+            # 檢查不可修改屬性是否有變更 (保留原有的檢查邏輯)
+            for attr in immutable_attrs:
+                if attr in self.json_args:
+                    if not utils.are_job_args_equal(old_job_dict.get(attr), self.json_args[attr]):
+                        logger.info(f"{str(old_job_dict.get(attr))} != {str(self.json_args[attr])} 不可修改屬性有變更")
+                        has_immutable_changes = True
+                        break
 
-                if has_immutable_changes:
-                    # 如果需要修改不可修改的屬性，我們需要重新創建任務
-                    logger.info("檢測到不可修改的屬性發生變更，將重新創建任務")
+            # 移除所有不可修改的屬性，無論它們是否變更
+            modifiable_args = {}
+            for key, value in self.json_args.items():
+                if key not in immutable_attrs:
+                    modifiable_args[key] = value
 
-                    # 獲取當前任務的所有設置
-                    current_settings = {
-                        "name": old_job_dict["name"],
-                        "job_class_string": old_job_dict["job_class_string"],
-                        "pub_args": old_job_dict["pub_args"],
-                        "month": old_job_dict.get("month", "*"),
-                        "day": old_job_dict.get("day", "*"),
-                        "day_of_week": old_job_dict.get("day_of_week", "*"),
-                        "hour": old_job_dict.get("hour", "*"),
-                        "minute": old_job_dict.get("minute", "*"),
-                    }
+            # 檢查是否需要重建任務
+            if has_immutable_changes:
+                # 如果有不可修改屬性變更，使用重建流程
+                # logger.info("檢測到不可修改的屬性發生變更，將重新創建任務")
 
-                    # 更新設置
-                    for key, value in self.json_args.items():
-                        if key in current_settings:
-                            current_settings[key] = value
+                # 獲取當前任務的所有設置
+                current_settings = {
+                    "name": old_job_dict["name"],
+                    "job_class_string": old_job_dict["job_class_string"],
+                    "pub_args": old_job_dict["pub_args"],
+                    "month": old_job_dict.get("month", "*"),
+                    "day": old_job_dict.get("day", "*"),
+                    "day_of_week": old_job_dict.get("day_of_week", "*"),
+                    "hour": old_job_dict.get("hour", "*"),
+                    "minute": old_job_dict.get("minute", "*"),
+                }
 
-                    # 驗證任務類別
-                    if "job_class_string" in self.json_args:
-                        job_class = utils.get_job_class(current_settings["job_class_string"])
-                        if not job_class:
-                            self.set_status(400)
-                            return {"error": f"無效的任務類別：{current_settings['job_class_string']}"}
+                # 更新設置
+                for key, value in self.json_args.items():
+                    if key in current_settings:
+                        current_settings[key] = value
 
-                    # 處理任務參數
-                    if "pub_args" in self.json_args:
-                        try:
-                            args = current_settings["pub_args"]
-                            if isinstance(args, str):
-                                args = json.loads(args)
-                            if not isinstance(args, (list, dict)):
-                                args = [args]
-                            current_settings["pub_args"] = json.dumps(args)
-                        except json.JSONDecodeError:
-                            self.set_status(400)
-                            return {"error": "無效的任務參數格式"}
+                # 驗證任務類別
+                if "job_class_string" in self.json_args:
+                    job_class = utils.get_job_class(current_settings["job_class_string"])
+                    if not job_class:
+                        self.set_status(400)
+                        return {"error": f"無效的任務類別：{current_settings['job_class_string']}"}
 
+                # 處理任務參數
+                if "pub_args" in self.json_args:
                     try:
-                        # 先創建新任務，如果成功再刪除舊任務
-                        temp_job_id = f"temp_{job_id}"
-                        self.scheduler_manager.add_job(job_id=temp_job_id, **current_settings)
+                        args = current_settings["pub_args"]
+                        if isinstance(args, str):
+                            args = json.loads(args)
+                        if not isinstance(args, (list, dict)):
+                            args = [args]
+                        current_settings["pub_args"] = json.dumps(args)
+                    except json.JSONDecodeError:
+                        self.set_status(400)
+                        return {"error": "無效的任務參數格式"}
 
-                        # 如果新任務創建成功，刪除舊任務
-                        self.scheduler_manager.remove_job(job_id)
+                # 在嘗試創建任務前添加
+                try:
+                    # 先定義變數
+                    temp_job_id = f"temp_{job_id}"
+                    
+                    # 然後再記錄
+                    logger.info(f"創建任務時使用的 current_settings 內容: {json.dumps(current_settings, default=str)}")
+                    logger.info(f"創建任務時使用的 temp_job_id: {temp_job_id}")
+                    
+                    # --- 明確提取所有需要的參數 ---
+                    user = self.username # 確保傳遞 user
+                    job_class_string = current_settings.get('job_class_string')
+                    name = current_settings.get('name')                   
+                    month = current_settings.get('month')
+                    day_of_week = current_settings.get('day_of_week')
+                    day = current_settings.get('day')
+                    hour = current_settings.get('hour')
+                    minute = current_settings.get('minute')
 
-                        # 再次創建新任務，使用原始 job_id
-                        self.scheduler_manager.add_job(job_id=job_id, **current_settings)
-
-                        # 刪除臨時任務
-                        self.scheduler_manager.remove_job(temp_job_id)
-
-                        logger.info(f"成功重新創建任務：{current_settings}")
-                    except Exception as e:
-                        # 如果創建新任務失敗，確保刪除臨時任務（如果存在）
+                    # 處理 pub_args
+                    pub_args_to_pass = current_settings.get("pub_args")
+                    if isinstance(pub_args_to_pass, str):
                         try:
-                            self.scheduler_manager.remove_job(temp_job_id)
-                        except Exception:
-                            pass
+                            pub_args_to_pass = json.loads(pub_args_to_pass)
+                        except json.JSONDecodeError:
+                            logger.warning(f"無法解析 pub_args 字串 '{pub_args_to_pass}', 將作為單一元素列表傳遞。")
+                            pub_args_to_pass = [pub_args_to_pass]
+                    if pub_args_to_pass is None:
+                        pub_args_to_pass = []
 
-                        # 如果舊任務還存在，保持不變
-                        if self.scheduler_manager.get_job(job_id):
-                            utils.log_error(f"創建新任務失敗，保持原任務不變：{str(e)}")
-                            self.set_status(400)
-                            return {"error": f"修改任務失敗：{str(e)}"}
-                        else:
-                            # 如果舊任務已被刪除，嘗試恢復
-                            try:
-                                self.scheduler_manager.add_job(job_id=job_id, **old_job_dict)
-                                utils.log_error(f"創建新任務失敗，已恢復原任務：{str(e)}")
-                                self.set_status(400)
-                                return {"error": f"修改任務失敗，已恢復原任務：{str(e)}"}
-                            except Exception as restore_error:
-                                utils.log_error(f"恢復原任務失敗：{str(restore_error)}")
-                                self.set_status(500)
-                                return {"error": "修改任務失敗且無法恢復原任務"}
+                    # 收集額外的 kwargs (如果有的話，但不應包含衝突鍵)
+                    extra_kwargs = {}
+                    known_params = {'job_class_string', 'name', 'pub_args', 'month', 'day_of_week', 'day', 'hour', 'minute', 'job_id', 'user'}
+                    for k, v in current_settings.items():
+                        if k not in known_params:
+                            extra_kwargs[k] = v
+                    extra_kwargs['user'] = user # 確保 user 在 kwargs 中
 
-                else:
-                    # 如果只修改可修改的屬性，使用 modify_job
-                    logger.info("只修改可修改的屬性")
-                    modifiable_args = {}
+                    # --- 創建臨時任務 ---
+                    # logger.info(f"嘗試創建臨時任務 (使用明確參數): job_id={temp_job_id}, name={name}, class={job_class_string}, args={pub_args_to_pass}, cron=..., kwargs={extra_kwargs}")
+                    self.scheduler_manager.add_job(
+                        job_class_string=job_class_string,
+                        name=name,
+                        pub_args=pub_args_to_pass,
+                        month=month,
+                        day_of_week=day_of_week,
+                        day=day,
+                        hour=hour,
+                        minute=minute,
+                        job_id=temp_job_id, # 將 job_id 傳入 kwargs
+                        **extra_kwargs # 傳遞其他非標準參數，包含 user
+                    )
 
-                    # 只包含可修改的屬性
-                    for key, value in self.json_args.items():
-                        if key not in immutable_attrs:
-                            modifiable_args[key] = value
+                    # --- 刪除舊任務 ---
+                    logger.info(f"臨時任務 {temp_job_id} 創建成功，準備刪除舊任務 {job_id}")
+                    self.scheduler_manager.remove_job(job_id)
 
-                    if modifiable_args:
-                        self.scheduler_manager.modify_job(job_id, **modifiable_args)
-                        logger.info(f"成功修改任務屬性：{modifiable_args}")
+                    # --- 創建新任務 ---
+                    logger.info(f"嘗試創建新任務 (使用明確參數): job_id={job_id}, name={name}, class={job_class_string}, args={pub_args_to_pass}, cron=..., kwargs={extra_kwargs}")
+                    self.scheduler_manager.add_job(
+                        job_class_string=job_class_string,
+                        name=name,
+                        pub_args=pub_args_to_pass,
+                        month=month,
+                        day_of_week=day_of_week,
+                        day=day,
+                        hour=hour,
+                        minute=minute,
+                        job_id=job_id, # 將 job_id 傳入 kwargs
+                        **extra_kwargs # 傳遞其他非標準參數，包含 user
+                    )
+
+                    # --- 刪除臨時任務 ---
+                    logger.info(f"新任務 {job_id} 創建成功，準備刪除臨時任務 {temp_job_id}")
+                    self.scheduler_manager.remove_job(temp_job_id)
+
+                    logger.info(f"成功重新創建任務：{current_settings}")
+                except Exception as e:
+                    logger.error(f"重建任務失敗: {str(e)}", exc_info=True) # 添加 exc_info=True
+                    # 如果創建新任務失敗，確保刪除臨時任務（如果存在）
+                    try:
+                        self.scheduler_manager.remove_job(temp_job_id)
+                    except Exception:
+                        pass
+
+                    # 如果舊任務還存在，保持不變
+                    if self.scheduler_manager.get_job(job_id):
+                        utils.log_error(f"創建新任務失敗，保持原任務不變：{str(e)}")
+                        self.set_status(400)
+                        return {"error": f"修改任務失敗：{str(e)}"}
                     else:
-                        logger.info("沒有需要修改的屬性")
-
-                # 取得更新後的任務資訊
-                new_job = self.scheduler_manager.get_job(job_id)
-                if not new_job:
-                    utils.log_error(f"任務修改後無法取得：{job_id}")
-                    self.set_status(500)
-                    return {"error": "任務修改失敗"}
-
-                new_job_dict = self._build_job_dict(new_job)
-                logger.info(f"任務修改成功，新資訊：{new_job_dict}")
-
-                # 生成修改描述
-                description = self._generate_description_for_modify(old_job_dict, new_job_dict)
-
-                # 記錄稽核日誌
-                self.datastore.add_audit_log(
-                    job_id,
-                    new_job_dict["name"],
-                    constants.AUDIT_LOG_MODIFIED,
-                    user=self.username,
-                    description=description,
-                )
-
-                return new_job_dict
-
-            except Exception as e:
-                utils.log_error(f"修改任務時發生錯誤：{str(e)}", exc_info=True)
-                self.set_status(400)
-                return {"error": f"Failed to modify job {job_id}: {str(e)}"}
-
+                        # 如果舊任務已被刪除，嘗試恢復
+                        try:
+                            self.scheduler_manager.add_job(job_id=job_id, **old_job_dict)
+                            utils.log_error(f"創建新任務失敗，已恢復原任務：{str(e)}")
+                            self.set_status(400)
+                            return {"error": f"修改任務失敗，已恢復原任務：{str(e)}"}
+                        except Exception as restore_error:
+                            utils.log_error(f"恢復原任務失敗：{str(restore_error)}")
+                            self.set_status(500)
+                            return {"error": "修改任務失敗且無法恢復原任務"}
+            else:
+                # 如果只有可修改的屬性變更，使用標準修改流程
+                if modifiable_args:
+                    try:
+                        logger.info(f"只修改可修改屬性: {modifiable_args}")
+                        self.scheduler_manager.modify_job(job_id, **modifiable_args)
+                        logger.info("任務修改成功")
+                    except Exception as e:
+                        utils.log_error(f"修改任務屬性失敗: {str(e)}")
+                        self.set_status(400)
+                        return {"error": f"修改任務失敗: {str(e)}"}
+                else:
+                    logger.info("沒有可修改的屬性")
         except Exception as e:
-            utils.log_error(f"修改任務時發生未預期的錯誤：{str(e)}", exc_info=True)
+            utils.log_error(f"創建新任務時出現異常: {str(e)}", exc_info=True)  # 記錄完整堆疊
             self.set_status(500)
-            return {"error": f"修改任務失敗：{str(e)}"}
+            self.write({"error": f"修改任務時發生錯誤：{str(e)}"})
 
     @tornado.concurrent.run_on_executor
     def modify_job(self, job_id):

@@ -1,9 +1,13 @@
 """Represents the core scheduler instance that actually schedules jobs."""
 
 from apscheduler.executors import pool
+import json
+import logging
 
 from ndscheduler.corescheduler import constants
 from ndscheduler.corescheduler import utils
+
+logger = logging.getLogger(__name__)
 
 
 class SchedulerManager:
@@ -107,6 +111,14 @@ class SchedulerManager:
         :return: String of job id, e.g., 6bca19736d374ef2b3df23eb278b512e
         :rtype: str
         """
+        logger.info(f"scheduler_manager.add_job() 收到參數: {kwargs}")
+        # 處理 pub_args 格式
+        if 'pub_args' in kwargs and isinstance(kwargs['pub_args'], str):
+            try:
+                kwargs['pub_args'] = json.loads(kwargs['pub_args'])
+            except:
+                pass
+        
         return self.sched.add_scheduler_job(
             job_class_string, name, pub_args, month, day_of_week, day, hour, minute, **kwargs
         )

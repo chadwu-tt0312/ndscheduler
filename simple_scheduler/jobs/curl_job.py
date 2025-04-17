@@ -18,7 +18,10 @@ class CurlJob(job.JobBase):
             "notes": "This sends a HTTP request to a particular URL",
             "arguments": [
                 # url
-                {"type": "string", "description": "What URL you want to make a GET call?"},
+                {
+                    "type": "string",
+                    "description": "What URL you want to make a GET call?",
+                },
                 # Request Type
                 {
                     "type": "string",
@@ -27,7 +30,9 @@ class CurlJob(job.JobBase):
                 },
             ],
             "example_arguments": (
-                '["http://localhost:8888/api/v1/jobs", "GET"]'
+                '["http://localhost:5678/api/v1/health","GET"]',
+                '["http://localhost:5678/api/v1/jsonrpc","POST","{\"jsonrpc\": \"2.0\",\"method\":\"apiinfo.version\",\"params\":{},\"id\":1}"]',
+                '["http://localhost:8888/api/v1/jobs", "GET"]',
                 '["http://localhost:8888/api/v1/jobs/ba12e", "DELETE"]'
             ),
         }
@@ -57,4 +62,4 @@ class CurlJob(job.JobBase):
 
 if __name__ == "__main__":
     job = CurlJob.create_test_instance()
-    job.run("http://localhost:888/api/v1/jobs")
+    job.run("http://localhost:8888/api/v1/jobs")

@@ -6,7 +6,6 @@ from ndscheduler.corescheduler import job
 
 
 class ShellJob(job.JobBase):
-
     @classmethod
     def meta_info(cls):
         return {
@@ -17,7 +16,10 @@ class ShellJob(job.JobBase):
                 "program in order."
             ),
             "arguments": [{"type": "string", "description": "Executable path"}],
-            "example_arguments": '["/usr/local/my_program", "--file", "/tmp/abc", "--mode", "safe"]',
+            "example_arguments": (
+                '["uv","run","--with","cowsay","python","-c","from cowsay import cow; cow(\"hello, world\")","--mode","safe"]',
+                '["/usr/local/my_app", "--file", "/tmp/abc", "--mode", "safe"]'
+            ),
         }
 
     def run(self, *args, **kwargs):

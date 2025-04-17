@@ -65,6 +65,22 @@ def get_job_kwargs(job):
     """
     return job.kwargs
 
+def are_job_args_equal(args1, args2):
+    """比較兩個 job args 是否相等，會考慮到 tuple 和 list 的等價性。
+
+    :param args1: 第一個 job args
+    :param args2: 第二個 job args
+    :return: 如果兩個 args 在功能上相等則返回 True
+    :rtype: bool
+    """
+    if args1 == args2:
+        return True
+
+    # 如果其中一個是 tuple 另一個是 list，將它們轉換成相同類型再比較
+    if isinstance(args1, (tuple, list)) and isinstance(args2, (tuple, list)):
+        return list(args1) == list(args2)
+
+    return False
 
 def get_cron_strings(job):
     """Returns cron strings.

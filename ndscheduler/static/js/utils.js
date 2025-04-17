@@ -61,10 +61,18 @@ define(['spin', 'noty', 'moment', 'jquery'], function (Spinner, noty, moment, $)
    * @param {String} msg Error message to display.
    */
   var alertError = function (msg) {
+    // 檢查是否為權限被拒絕的訊息
+    if (msg && (msg.indexOf('Permission denied') !== -1 || msg.indexOf('權限被拒') !== -1)) {
+      // 權限被拒絕時，僅在控制台記錄
+      console.log('權限錯誤: ' + msg);
+      return;
+    }
+
+    // 其他錯誤訊息正常顯示
     window.noty({
       type: 'error',
       text: msg,
-      timeout: 2000,
+      timeout: 3000,
       layout: 'top',
       theme: 'defaultTheme',
       maxVisible: 5,
