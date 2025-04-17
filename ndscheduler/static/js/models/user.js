@@ -50,7 +50,7 @@ define(['backbone',
                 }
 
                 var m = moment(this.get('created_at'));
-                return m.format('YYYY-MM-DD HH:mm:ss');
+                return m.format('YYYY/MM/DD HH:mm:ss');
             },
 
             /**
@@ -62,7 +62,7 @@ define(['backbone',
                 }
 
                 var m = moment(this.get('updated_at'));
-                return m.format('YYYY-MM-DD HH:mm:ss');
+                return m.format('YYYY/MM/DD HH:mm:ss');
             },
 
             /**

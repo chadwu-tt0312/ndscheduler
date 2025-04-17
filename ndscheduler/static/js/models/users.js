@@ -33,14 +33,14 @@ define(['utils',
             },
 
             /**
-             * 獲取用戶總數
+             * Get user count
              */
             getTotal: function () {
                 return this.users ? this.users.length : 0;
             },
 
             /**
-             * 獲取所有用戶
+             * Get all users
              */
             getUsers: function () {
                 this.url = '/api/v1/users';
@@ -48,7 +48,7 @@ define(['utils',
             },
 
             /**
-             * 獲取單個用戶
+             * Get single user
              */
             getUser: function (userId) {
                 this.url = '/api/v1/users/' + userId;
@@ -56,13 +56,13 @@ define(['utils',
             },
 
             /**
-             * 解析服務器返回的響應
+             * Parse server response
              */
             parse: function (response) {
-                console.log('用戶數據響應:', response);
+                console.log('User data response:', response);
                 var users = response.users;
 
-                // 如果 API 服務器返回單個用戶，將其轉換為數組
+                // If API server returns a single user, convert it to an array
                 if (!users) {
                     users = [response];
                 }
@@ -75,7 +75,7 @@ define(['utils',
             },
 
             /**
-             * 添加用戶
+             * Add user
              */
             addUser: function (data) {
                 $.ajax({
@@ -89,16 +89,16 @@ define(['utils',
             },
 
             _addUserSuccess: function () {
-                utils.alertSuccess('成功添加用戶');
+                utils.alertSuccess('User added successfully');
                 usersCollection.trigger('reset');
             },
 
             _addUserError: function (err) {
-                utils.alertError('添加用戶失敗\n' + err.statusText);
+                utils.alertError('Failed to add user\n' + err.statusText);
             },
 
             /**
-             * 刪除用戶
+             * Delete user
              */
             deleteUser: function (userId) {
                 $.ajax({
@@ -110,16 +110,16 @@ define(['utils',
             },
 
             _deleteUserSuccess: function () {
-                utils.alertSuccess('成功刪除用戶');
+                utils.alertSuccess('User deleted successfully');
                 usersCollection.trigger('reset');
             },
 
             _deleteUserError: function () {
-                utils.alertError('刪除用戶失敗');
+                utils.alertError('Failed to delete user');
             },
 
             /**
-             * 修改用戶
+             * Modify user
              */
             modifyUser: function (userId, data) {
                 $.ajax({
@@ -133,12 +133,12 @@ define(['utils',
             },
 
             _editUserSuccess: function () {
-                utils.alertSuccess('成功修改用戶');
+                utils.alertSuccess('User updated successfully');
                 usersCollection.trigger('reset');
             },
 
             _editUserError: function (err) {
-                utils.alertError('修改用戶失敗\n' + err.statusText);
+                utils.alertError('Failed to update user\n' + err.statusText);
             }
         });
     }); 

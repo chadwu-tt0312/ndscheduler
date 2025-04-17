@@ -63,12 +63,12 @@ class SchedulerServer:
             # Auth APIs
             (r"/api/%s/auth/login" % self.VERSION, auth.LoginHandler),
             # Users APIs
-            (r"/api/%s/users" % self.VERSION, users.UsersHandler),
+            (r"/api/%s/users" % self.VERSION, users.Handler),
             (r"/api/%s/users/current" % self.VERSION, users.CurrentUserHandler),
-            (r"/api/%s/users/(.*)" % self.VERSION, users.UserHandler),
+            (r"/api/%s/users/(.*)" % self.VERSION, users.Handler),
             # Categories APIs
-            (r"/api/%s/categories" % self.VERSION, categories.CategoriesHandler),
-            (r"/api/%s/categories/(.*)" % self.VERSION, categories.CategoryHandler),
+            (r"/api/%s/categories" % self.VERSION, categories.Handler),
+            (r"/api/%s/categories/(.*)" % self.VERSION, categories.Handler),
             # Jobs APIs
             (r"/api/%s/jobs" % self.VERSION, jobs.Handler),
             (r"/api/%s/jobs/(.*)" % self.VERSION, jobs.Handler),

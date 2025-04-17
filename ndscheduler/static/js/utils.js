@@ -2,7 +2,8 @@ require.config({
   paths: {
     'spin': 'vendor/spin',
     'noty': 'vendor/jquery.noty',
-    'jquery': 'vendor/jquery'
+    'jquery': 'vendor/jquery',
+    'moment': 'vendor/moment'
   },
 
   shim: {
@@ -12,7 +13,7 @@ require.config({
   }
 });
 
-define(['spin', 'noty'], function(Spinner) {
+define(['spin', 'noty', 'moment', 'jquery'], function (Spinner, noty, moment, $) {
   'use strict';
 
   /**
@@ -21,7 +22,7 @@ define(['spin', 'noty'], function(Spinner) {
    * @param {String} parentDomId The parent element id for spinner.
    * @return {Spinner} object of Spinner
    */
-  var startSpinner = function(parentDomId) {
+  var startSpinner = function (parentDomId) {
     var opts = {
       lines: 13, // The number of lines to draw
       length: 20, // The length of each line
@@ -50,7 +51,7 @@ define(['spin', 'noty'], function(Spinner) {
    *
    * @param {Spinner} spinner The spinner object to stop.
    */
-  var stopSpinner = function(spinner) {
+  var stopSpinner = function (spinner) {
     spinner.stop();
   };
 
@@ -59,11 +60,20 @@ define(['spin', 'noty'], function(Spinner) {
    *
    * @param {String} msg Error message to display.
    */
-  var alertError = function(msg) {
-    noty({
+  var alertError = function (msg) {
+    window.noty({
       type: 'error',
       text: msg,
-      timeout: 2000
+      timeout: 2000,
+      layout: 'top',
+      theme: 'defaultTheme',
+      maxVisible: 5,
+      animation: {
+        open: { height: 'toggle' },
+        close: { height: 'toggle' },
+        easing: 'swing',
+        speed: 500
+      }
     });
   };
 
@@ -72,12 +82,62 @@ define(['spin', 'noty'], function(Spinner) {
    *
    * @param {String} msg Success message to display.
    */
-  var alertSuccess = function(msg) {
-    noty({
+  var alertSuccess = function (msg) {
+    window.noty({
       type: 'success',
       text: msg,
-      timeout: 2000
+      timeout: 2000,
+      layout: 'top',
+      theme: 'defaultTheme',
+      maxVisible: 5,
+      animation: {
+        open: { height: 'toggle' },
+        close: { height: 'toggle' },
+        easing: 'swing',
+        speed: 500
+      }
     });
+  };
+
+  /**
+   * 安全地建立 moment 實例，避免棄用警告
+   * 
+   * @param {String|Date} date 日期時間字串或物件
+   * @param {String} format 格式字串 (可選)
+   * @return {moment} moment 實例
+   */
+  var createMoment = function (date, format) {
+    if (!date) {
+      return moment(); // 現在時間
+    }
+
+    if (format) {
+      return moment(date, format); // 指定格式解析
+    }
+
+    if (date instanceof Date) {
+      return moment(date.getTime()); // 使用時間戳來避免警告
+    }
+
+    if (typeof date === 'string') {
+      // 嘗試 ISO 8601 格式解析
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(date)) {
+        return moment(date, moment.ISO_8601);
+      }
+
+      // Unix 時間戳 (秒)
+      if (/^\d{10}$/.test(date)) {
+        return moment.unix(parseInt(date, 10));
+      }
+
+      // Unix 時間戳 (毫秒)
+      if (/^\d{13}$/.test(date)) {
+        return moment(parseInt(date, 10));
+      }
+    }
+
+    // 若無法確定格式，仍使用一般方式，但至少我們嘗試了避免警告
+    return moment(date);
   };
 
   /**
@@ -87,7 +147,7 @@ define(['spin', 'noty'], function(Spinner) {
    * @return {*} json object
    * @private
    */
-  var getTaskArgs = function(argsString) {
+  var getTaskArgs = function (argsString) {
     // argsString should be a json string
     if (argsString.trim() === '') {
       return [];
@@ -102,7 +162,7 @@ define(['spin', 'noty'], function(Spinner) {
    * @param {String} name query parameter name.
    * @return {String} value of that query parameter.
    */
-  var getParameterByName = function(name) {
+  var getParameterByName = function (name) {
     var url = window.location.href;
     var results = new RegExp('[\\?&]' + name + '=([^&#]*)').exec(url);
     if (!results) {
@@ -121,6 +181,7 @@ define(['spin', 'noty'], function(Spinner) {
     alertSuccess: alertSuccess,
     alertError: alertError,
 
+    createMoment: createMoment,
     getTaskArgs: getTaskArgs,
     getParameterByName: getParameterByName
   };

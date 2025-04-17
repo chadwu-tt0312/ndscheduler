@@ -8,6 +8,9 @@ define(['jquery', 'auth', 'bootstrap'], function ($, auth) {
     var pageManager = {};
     var user = auth.verifyUser();
 
+    // 將使用者管理員狀態設定為全域變數供其他模組使用
+    window.isAdmin = user.isAdmin === true;
+
     /**
      * 初始化頁面
      */
@@ -19,6 +22,7 @@ define(['jquery', 'auth', 'bootstrap'], function ($, auth) {
         }
 
         console.log('Initializing page manager');
+        console.log('User admin status:', window.isAdmin);
 
         // 更新網站標題
         pageManager.updateWebsiteTitle();

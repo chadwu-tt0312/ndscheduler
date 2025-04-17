@@ -21,6 +21,13 @@
 12. uv pip install -e .
 13. uv run simple_scheduler/scheduler.py
 
+## setup (origin-new)
+
+1. uv venv --python=3.11
+2. source .venv/Scripts/activate
+3. uv pip install -r requirements.txt
+4. uv pip install -e . --no-cache-dir --force-reinstall
+
 ## setup (palto42)
 
 1. uv venv --python=3.11
@@ -77,6 +84,9 @@
     - from `\ndscheduler\corescheduler\datastore\base_test.py`
     - to `\tests\ndscheduler\corescheduler\datastore\test_base.py`
 7. move another *_test.py
+8. htpasswd -nbB username password
+9. 在執行 pip install -e . 時，Python 套件安裝系統可能使用的是安裝前已經緩存的元數據，或者是已經解析過的套件信息。所以需要"清除構建緩存"
+    - uv pip install -e . --no-cache-dir --force-reinstall
 
 ### cUrl
 

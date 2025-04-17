@@ -16,6 +16,7 @@ PACKAGE = "ndscheduler"
 __version__ = None
 
 exec(open(os.path.join("ndscheduler", "version.py")).read())  # set __version__
+print(f"Building package version: {__version__}")
 
 
 # -*- Hooks -*-

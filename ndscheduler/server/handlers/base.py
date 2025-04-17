@@ -113,4 +113,23 @@ class BaseHandler(tornado.web.RequestHandler):
 
         :return: SQLAlchemy 會話
         """
-        return self.datastore.session_factory()
+        try:
+            # 首先嘗試使用 session_factory 方法（新版方法）
+            if hasattr(self.datastore, "session_factory"):
+                return self.datastore.session_factory()
+            # 如果沒有 session_factory 方法，則使用 datastore 直接提供的 Session 對象或連接
+            elif hasattr(self.datastore, "session"):
+                return self.datastore.session
+            # 兼容舊版 SQLAlchemy
+            elif hasattr(self.datastore, "engine"):
+                from sqlalchemy.orm import Session
+
+                return Session(self.datastore.engine)
+            else:
+                raise AttributeError("無法獲取資料庫連接，datastore 缺少必要的屬性")
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"獲取資料庫連接時發生錯誤: {str(e)}", exc_info=True)
+            raise

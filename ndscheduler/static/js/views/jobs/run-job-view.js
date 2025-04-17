@@ -63,7 +63,6 @@ define(['text!run-job-modal',
           var jobId = $(e.target).data('id');
           this.collection.runJob(jobId);
           $('#run-job-modal').modal('hide');
-          console.log("恢復頁面狀態");
         }, this));
       }
     });

@@ -96,6 +96,8 @@ class DatastoreBase(sched_sqlalchemy.SQLAlchemyJobStore):
 
             # 初始化使用者資料
             self.init_users()
+            # 初始化分類資料
+            self.init_categories()
 
             logger.debug("資料庫初始化成功")
         except Exception as e:
@@ -129,6 +131,29 @@ class DatastoreBase(sched_sqlalchemy.SQLAlchemyJobStore):
                     logger.info("已創建預設使用者")
         except Exception as e:
             logger.error("初始化使用者資料失敗: %s", str(e))
+
+    def init_categories(self):
+        """初始化分類資料。
+
+        如果分類表格為空，則創建。
+        """
+        try:
+            # 檢查是否有分類資料
+            with Session(self.engine) as session:
+                stmt = select(self.categories_table)
+                result = session.execute(stmt)
+                if not result.first():  # 如果沒有任何分類資料
+                    # 新增分類資料
+                    stmt = self.categories_table.insert().values(
+                        name="dev",
+                        description="dev description", 
+                        created_at=utils.get_current_datetime(),
+                    )
+                    session.execute(stmt)
+                    session.commit()
+                    logger.info("已創建預設分類")
+        except Exception as e:
+            logger.error("初始化分類資料失敗: %s", str(e))
 
     def get_db_url(self):
         """Get the database URL.

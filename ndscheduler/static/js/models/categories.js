@@ -33,14 +33,14 @@ define(['utils',
             },
 
             /**
-             * 獲取分類總數
+             * Get category count
              */
             getTotal: function () {
                 return this.categories ? this.categories.length : 0;
             },
 
             /**
-             * 獲取所有分類
+             * Get all categories
              */
             getCategories: function () {
                 this.url = '/api/v1/categories';
@@ -48,7 +48,7 @@ define(['utils',
             },
 
             /**
-             * 獲取單個分類
+             * Get single category
              */
             getCategory: function (categoryId) {
                 this.url = '/api/v1/categories/' + categoryId;
@@ -56,13 +56,13 @@ define(['utils',
             },
 
             /**
-             * 解析服務器返回的響應
+             * Parse server response
              */
             parse: function (response) {
-                console.log('分類數據響應:', response);
+                console.log('Category data response:', response);
                 var categories = response.categories;
 
-                // 如果 API 服務器返回單個分類，將其轉換為數組
+                // If API server returns a single category, convert it to an array
                 if (!categories) {
                     categories = [response];
                 }
@@ -75,7 +75,7 @@ define(['utils',
             },
 
             /**
-             * 添加分類
+             * Add category
              */
             addCategory: function (data) {
                 $.ajax({
@@ -89,16 +89,16 @@ define(['utils',
             },
 
             _addCategorySuccess: function () {
-                utils.alertSuccess('成功添加分類');
+                utils.alertSuccess('Category added successfully');
                 categoriesCollection.trigger('reset');
             },
 
             _addCategoryError: function (err) {
-                utils.alertError('添加分類失敗\n' + err.statusText);
+                utils.alertError('Failed to add category\n' + err.statusText);
             },
 
             /**
-             * 刪除分類
+             * Delete category
              */
             deleteCategory: function (categoryId) {
                 $.ajax({
@@ -110,16 +110,16 @@ define(['utils',
             },
 
             _deleteCategorySuccess: function () {
-                utils.alertSuccess('成功刪除分類');
+                utils.alertSuccess('Category deleted successfully');
                 categoriesCollection.trigger('reset');
             },
 
             _deleteCategoryError: function () {
-                utils.alertError('刪除分類失敗');
+                utils.alertError('Failed to delete category');
             },
 
             /**
-             * 修改分類
+             * Modify category
              */
             modifyCategory: function (categoryId, data) {
                 $.ajax({
@@ -133,12 +133,12 @@ define(['utils',
             },
 
             _editCategorySuccess: function () {
-                utils.alertSuccess('成功修改分類');
+                utils.alertSuccess('Category updated successfully');
                 categoriesCollection.trigger('reset');
             },
 
             _editCategoryError: function (err) {
-                utils.alertError('修改分類失敗\n' + err.statusText);
+                utils.alertError('Failed to update category\n' + err.statusText);
             }
         });
     }); 

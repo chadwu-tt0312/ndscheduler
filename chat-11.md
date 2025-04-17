@@ -199,7 +199,7 @@ Error fetching categories: {"error": {"code": 500, "message": "Internal Server E
 
 ---
 
-## q-17 (FAIL)
+## q-17
 
 為何 jobs 頁面資料顯示錯誤(無資料)，實際有一筆。
 
@@ -212,11 +212,11 @@ jobs & executions & logs 都是用 *.js 檔案處理邏輯，users & categories 
 
 ---
 
-## q-9
+## q-19
 
 ---
 
-## answer-9
+## answer-19
 
 ---
 
