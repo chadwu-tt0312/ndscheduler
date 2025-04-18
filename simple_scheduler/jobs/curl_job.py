@@ -25,20 +25,25 @@ class CurlJob(job.JobBase):
                 # Request Type
                 {
                     "type": "string",
-                    "description": "What request type do you want? "
-                    "(currently supported: GET/DELETE)",
+                    "description": "What request type do you want? " "(currently supported: GET/DELETE)",
                 },
             ],
             "example_arguments": (
                 '["http://localhost:5678/api/v1/health","GET"]',
-                '["http://localhost:5678/api/v1/jsonrpc","POST","{\"jsonrpc\": \"2.0\",\"method\":\"apiinfo.version\",\"params\":{},\"id\":1}"]',
+                '["http://localhost:5678/api/v1/jsonrpc","POST", \
+                  "{"jsonrpc": "2.0","method":"apiinfo.version","params":{},"id":1}"]',
                 '["http://localhost:8888/api/v1/jobs", "GET"]',
-                '["http://localhost:8888/api/v1/jobs/ba12e", "DELETE"]'
+                '["http://localhost:8888/api/v1/jobs/ba12e", "DELETE"]',
             ),
         }
 
     def run(self, url, request_type, *args, **kwargs):
-        print("Calling %s on url: %s, data=%s" % (request_type, url, args))
+        logger.info("CurlJob.run() called.")
+        logger.info(f"  Received argument1: {url} (type: {type(url)})")
+        logger.info(f"  Received argument2: {request_type} (type: {type(request_type)})")
+        logger.info(f"  Received *args: {args} (type: {type(args)}, len: {len(args)})")
+        logger.info(f"  Received **kwargs: {kwargs} (type: {type(kwargs)})")
+        # logger.info("Calling %s on url: %s, data=%s" % (request_type, url, args))
         param = args[0] if args else None
 
         try:

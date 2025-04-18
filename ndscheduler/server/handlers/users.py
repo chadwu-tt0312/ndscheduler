@@ -42,13 +42,13 @@ class Handler(base.BaseHandler):
         users_table = tables.get_users_table(
             metadata, self.datastore.table_names.get("users_tablename", "scheduler_users")
         )
-        
+
         # 檢查表是否存在
         engine = session.get_bind()
         if not engine.dialect.has_table(engine.connect(), users_table.name):
             self.set_status(400)
             return session, users_table, engine, True
-        
+
         return session, users_table, engine, False
 
     def _format_user(self, user_dict):
@@ -63,9 +63,9 @@ class Handler(base.BaseHandler):
         return {
             "id": user_dict["id"],
             "username": user_dict["username"],
-            "is_admin": user_dict["is_admin"],
             "category_id": user_dict["category_id"],
-            "permission": user_dict["permission"],
+            "is_admin": user_dict["is_admin"],
+            "is_permission": user_dict["is_permission"],
             "created_at": self._format_datetime(user_dict["created_at"]),
             "updated_at": self._format_datetime(user_dict["updated_at"]),
         }
@@ -83,23 +83,20 @@ class Handler(base.BaseHandler):
         """
         session, users_table, engine, error = self._get_users_table()
         if error:
-            return {"error": f"Users table does not exist"}
+            return {"error": "Users table does not exist"}
 
         # 查詢特定用戶
-        result = session.execute(
-            text(f"SELECT * FROM {users_table.name} WHERE id = :user_id"),
-            {"user_id": user_id}
-        )
+        result = session.execute(text(f"SELECT * FROM {users_table.name} WHERE id = :user_id"), {"user_id": user_id})
         user = result.fetchone()
-        
+
         if not user:
             self.set_status(400)
             return {"error": f"User not found: {user_id}"}
-            
+
         # 將結果轉換為字典
         columns = result.keys()
         user_dict = dict(zip(columns, user))
-        
+
         return self._format_user(user_dict)
 
     @tornado.concurrent.run_on_executor
@@ -127,19 +124,19 @@ class Handler(base.BaseHandler):
         # 檢查權限
         is_admin = self.current_user.get("is_admin", False)
         current_username = self.current_user.get("username", "")
-        
+
         return_json = yield self.get_user(user_id)
-        
+
         # 如果有錯誤或用戶不是管理員且不是查詢自己的信息，則返回錯誤
         if "error" in return_json:
             self.finish(return_json)
             return
-        
+
         if not is_admin and return_json["username"] != current_username:
             self.set_status(403)
             self.finish({"error": "Permission denied"})
             return
-            
+
         self.finish(return_json)
 
     def _get_users(self):
@@ -153,17 +150,15 @@ class Handler(base.BaseHandler):
         session, users_table, engine, error = self._get_users_table()
         if error:
             return {"error": "Users table does not exist"}
-        
+
         # 使用 text 查詢所有用戶
         result = session.execute(text(f"SELECT * FROM {users_table.name}"))
         columns = result.keys()
         users = [dict(zip(columns, row)) for row in result.fetchall()]
-        
+
         logger.info(f"Found {len(users)} users")
-        
-        return {
-            "users": [self._format_user(user) for user in users]
-        }
+
+        return {"users": [self._format_user(user) for user in users]}
 
     @tornado.concurrent.run_on_executor
     def get_users(self):
@@ -187,7 +182,7 @@ class Handler(base.BaseHandler):
             self.set_status(403)
             self.finish({"error": "Permission denied"})
             return
-            
+
         return_json = yield self.get_users()
         self.finish(return_json)
 
@@ -212,57 +207,64 @@ class Handler(base.BaseHandler):
         """新增用戶。
 
         Returns:
-            dict: 包含用戶 ID 的字典
+            dict: 成功時返回新增用戶信息，失敗時返回錯誤信息
         """
-        data = json.loads(self.request.body.decode())
-        username = data.get("username")
-        password = data.get("password")
-        is_admin = data.get("is_admin", False)
-        category_id = data.get("category_id")
-        permission = data.get("permission", False)
+        try:
+            data = json.loads(self.request.body.decode())
+            username = data.get("username")
+            password = data.get("password")
+            is_admin = data.get("is_admin", False)
+            # category_id 可能是 None 或 int
+            category_id_str = data.get("category_id")
+            category_id = None
+            if category_id_str is not None and category_id_str != "":
+                try:
+                    category_id = int(category_id_str)
+                except ValueError:
+                    self.set_status(400)
+                    return {"error": "Category ID must be an integer or empty"}
 
-        if not username or not password:
+            is_permission = data.get("is_permission", False)
+
+            if not username or not password:
+                self.set_status(400)
+                return {"error": "Username and password are required"}
+
+            # 檢查用戶名是否已存在 (此檢查應由 datastore.add_user 處理或在之前進行)
+            # 我們假設 datastore.add_user 會處理重複用戶名的情況 (如果需要的話)
+            # 或者可以在 datastore.add_user 內部添加此檢查
+            existing_user = self.datastore.get_user(username)
+            if existing_user:
+                self.set_status(400)
+                return {"error": "Username already exists"}
+
+            # 呼叫 datastore 新增用戶，捕捉 category_id 錯誤
+            self.datastore.add_user(username, password, category_id, is_admin, is_permission)
+
+            # 新增成功後，獲取用戶信息並返回
+            new_user_info = self.datastore.get_user(username)
+            if new_user_info:
+                self.set_status(201)  # Created
+                # 移除密碼資訊再回傳
+                new_user_info.pop("password", None)  # 假設 get_user 不回傳密碼
+                return self._format_user(new_user_info)
+            else:
+                # 雖然 add_user 成功，但 get_user 失敗？理論上不應發生
+                self.set_status(500)
+                return {"error": "User created but failed to retrieve information"}
+
+        except ValueError as e:
+            # 捕獲來自 datastore.add_user 的 category_id 驗證錯誤
             self.set_status(400)
-            return {"error": "Username and password are required"}
-
-        session, users_table, engine, error = self._get_users_table()
-        if error:
-            return {"error": "Users table does not exist"}
-
-        # 檢查用戶名是否已存在
-        result = session.execute(text(f"SELECT COUNT(*) FROM {users_table.name} WHERE username = :username"), 
-                                {"username": username})
-        if result.scalar() > 0:
+            return {"error": str(e)}
+        except json.JSONDecodeError:
+            logger.error("無效的 JSON 格式")
             self.set_status(400)
-            return {"error": "Username already exists"}
-
-        # 對密碼進行哈希處理
-        hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-
-        # 新增用戶
-        result = session.execute(
-            text(f"""
-                INSERT INTO {users_table.name} 
-                (username, password, is_admin, category_id, permission, created_at, updated_at) 
-                VALUES (:username, :password, :is_admin, :category_id, :permission, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                RETURNING id
-            """),
-            {
-                "username": username,
-                "password": hashed_password,
-                "is_admin": is_admin,
-                "category_id": category_id,
-                "permission": permission,
-            }
-        )
-        
-        # 獲取插入的 ID
-        inserted_id = result.scalar()
-        
-        session.commit()
-        logger.info(f"Created new user: {username}")
-
-        return {"id": inserted_id}
+            return {"error": "Invalid request format"}
+        except Exception as e:
+            logger.exception("新增用戶失敗")
+            self.set_status(500)
+            return {"error": f"Failed to add user: {str(e)}"}
 
     @tornado.concurrent.run_on_executor
     def add_user(self):
@@ -278,7 +280,7 @@ class Handler(base.BaseHandler):
         """add_user 的包裝器，在異步模式下運行。
 
         Returns:
-            dict: 包含用戶 ID 的字典
+            dict: 包含用戶 ID 的字典或錯誤訊息
         """
         # 檢查權限
         is_admin = self.current_user.get("is_admin", False)
@@ -286,10 +288,18 @@ class Handler(base.BaseHandler):
             self.set_status(403)
             self.finish({"error": "Permission denied"})
             return
-            
+
         return_json = yield self.add_user()
-        self.set_status(201)
-        self.finish(return_json)
+
+        # 檢查 _add_user 的回傳結果
+        if isinstance(return_json, dict) and "error" in return_json:
+            # 如果有錯誤，_add_user 已經設定了狀態碼 (通常是 400 或 500)
+            # 直接結束請求，回傳錯誤訊息
+            self.finish(return_json)
+        else:
+            # 如果沒有錯誤，設定成功狀態碼 201 並結束請求
+            self.set_status(201)
+            self.finish(return_json)
 
     @tornado.web.removeslash
     @tornado.gen.coroutine
@@ -313,11 +323,11 @@ class Handler(base.BaseHandler):
         data = json.loads(self.request.body.decode())
         username = data.get("username")
         password = data.get("password")
-        is_admin = data.get("is_admin")
         category_id = data.get("category_id")
-        permission = data.get("permission")
+        is_admin = data.get("is_admin")
+        is_permission = data.get("is_permission")
 
-        if not any([username, password, is_admin is not None, category_id is not None, permission is not None]):
+        if not any([username, password, category_id, is_admin is not None, is_permission is not None]):
             self.set_status(400)
             return {"error": "At least one field must be provided"}
 
@@ -327,8 +337,7 @@ class Handler(base.BaseHandler):
 
         # 檢查用戶是否存在
         result = session.execute(
-            text(f"SELECT COUNT(*) FROM {users_table.name} WHERE id = :user_id"),
-            {"user_id": user_id}
+            text(f"SELECT COUNT(*) FROM {users_table.name} WHERE id = :user_id"), {"user_id": user_id}
         )
         if result.scalar() == 0:
             self.set_status(400)
@@ -338,7 +347,7 @@ class Handler(base.BaseHandler):
         if username:
             result = session.execute(
                 text(f"SELECT COUNT(*) FROM {users_table.name} WHERE username = :username AND id != :user_id"),
-                {"username": username, "user_id": user_id}
+                {"username": username, "user_id": user_id},
             )
             if result.scalar() > 0:
                 self.set_status(400)
@@ -347,41 +356,43 @@ class Handler(base.BaseHandler):
         # 構建更新值
         update_fields = []
         params = {"user_id": user_id}
-        
+
         if username:
             update_fields.append("username = :username")
             params["username"] = username
-            
+
         if password:
             hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
             update_fields.append("password = :password")
             params["password"] = hashed_password
-            
-        if is_admin is not None:
-            update_fields.append("is_admin = :is_admin")
-            params["is_admin"] = is_admin
-            
+
         if category_id is not None:
             update_fields.append("category_id = :category_id")
             params["category_id"] = category_id
-            
-        if permission is not None:
-            update_fields.append("permission = :permission")
-            params["permission"] = permission
-            
+
+        if is_admin is not None:
+            update_fields.append("is_admin = :is_admin")
+            params["is_admin"] = is_admin
+
+        if is_permission is not None:
+            update_fields.append("is_permission = :is_permission")
+            params["is_permission"] = is_permission
+
         # 添加更新時間
         update_fields.append("updated_at = CURRENT_TIMESTAMP")
-        
+
         # 執行更新
         session.execute(
-            text(f"""
+            text(
+                f"""
                 UPDATE {users_table.name} 
                 SET {", ".join(update_fields)}
                 WHERE id = :user_id
-            """),
-            params
+            """
+            ),
+            params,
         )
-        
+
         session.commit()
         logger.info(f"Updated user {user_id}")
 
@@ -415,7 +426,7 @@ class Handler(base.BaseHandler):
             self.set_status(403)
             self.finish({"error": "Permission denied"})
             return
-            
+
         return_json = yield self.modify_user(user_id)
         self.finish(return_json)
 
@@ -447,19 +458,15 @@ class Handler(base.BaseHandler):
 
         # 檢查用戶是否存在
         result = session.execute(
-            text(f"SELECT COUNT(*) FROM {users_table.name} WHERE id = :user_id"),
-            {"user_id": user_id}
+            text(f"SELECT COUNT(*) FROM {users_table.name} WHERE id = :user_id"), {"user_id": user_id}
         )
         if result.scalar() == 0:
             self.set_status(400)
             return {"error": f"User not found: {user_id}"}
 
         # 刪除用戶
-        session.execute(
-            text(f"DELETE FROM {users_table.name} WHERE id = :user_id"),
-            {"user_id": user_id}
-        )
-        
+        session.execute(text(f"DELETE FROM {users_table.name} WHERE id = :user_id"), {"user_id": user_id})
+
         session.commit()
         logger.info(f"Deleted user {user_id}")
 
@@ -493,7 +500,7 @@ class Handler(base.BaseHandler):
             self.set_status(403)
             self.finish({"error": "Permission denied"})
             return
-            
+
         return_json = yield self.delete_user(user_id)
         self.finish(return_json)
 
@@ -540,7 +547,7 @@ class CurrentUserHandler(base.BaseHandler):
         users_table = tables.get_users_table(
             metadata, self.datastore.table_names.get("users_tablename", "scheduler_users")
         )
-        
+
         # 檢查表是否存在
         engine = session.get_bind()
         if not engine.dialect.has_table(engine.connect(), users_table.name):
@@ -549,15 +556,14 @@ class CurrentUserHandler(base.BaseHandler):
 
         # 查詢用戶
         result = session.execute(
-            text(f"SELECT * FROM {users_table.name} WHERE username = :username"),
-            {"username": username}
+            text(f"SELECT * FROM {users_table.name} WHERE username = :username"), {"username": username}
         )
         user = result.fetchone()
-        
+
         if not user:
             self.set_status(400)
             return {"error": f"User not found: {username}"}
-            
+
         # 將結果轉換為字典
         columns = result.keys()
         user_dict = dict(zip(columns, user))
@@ -566,9 +572,9 @@ class CurrentUserHandler(base.BaseHandler):
         return {
             "id": user_dict["id"],
             "username": user_dict["username"],
-            "is_admin": user_dict["is_admin"],
             "category_id": user_dict["category_id"],
-            "permission": user_dict["permission"],
+            "is_admin": user_dict["is_admin"],
+            "is_permission": user_dict["is_permission"],
             "created_at": self._format_datetime(user_dict["created_at"]),
             "updated_at": self._format_datetime(user_dict["updated_at"]),
         }

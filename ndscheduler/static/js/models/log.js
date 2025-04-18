@@ -87,13 +87,54 @@ define(['config',
         var desc = this.get('description');
         var event = this.get('event');
         var descHtml = '';
+
         if (event === 'custom_run') {
           // TODO (wenbin): Make a beautiful popup window to display this info,
           // instead of linking to raw json.
-          descHtml = 'Execution ID: <a href="/#executions/' +
-            desc + '">' + desc + '</a>';
+          descHtml = 'Execution ID: <a href="/#executions/' + desc + '">' + desc + '</a>';
         } else if (event === 'modified') {
-          descHtml = 'diff: old val => new val <br>' + desc;
+          try {
+            var changesData = JSON.parse(desc);
+            if (changesData && changesData.changes) {
+              descHtml = ''; // Start with an empty string
+              for (var key in changesData.changes) {
+                if (changesData.changes.hasOwnProperty(key)) {
+                  var change = changesData.changes[key];
+                  var oldValue = typeof change.old === 'object' ? JSON.stringify(change.old) : change.old;
+                  var newValue = typeof change.new === 'object' ? JSON.stringify(change.new) : change.new;
+
+                  // Escape HTML entities in values to prevent XSS
+                  var escapeHtml = function (unsafe) {
+                    return unsafe
+                      .replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;")
+                      .replace(/"/g, "&quot;")
+                      .replace(/'/g, "&#039;");
+                  };
+
+                  var formattedOld = escapeHtml(String(oldValue));
+                  var formattedNew = escapeHtml(String(newValue));
+
+                  descHtml += '<b>' + escapeHtml(key) + '</b>: <font color="red">' + formattedOld + '</font> => <font color="green">' + formattedNew + '</font><br>';
+                }
+              }
+              // Remove the last <br>
+              if (descHtml.endsWith('<br>')) {
+                descHtml = descHtml.slice(0, -4);
+              }
+            } else {
+              // If JSON is valid but doesn't have 'changes', display raw desc
+              descHtml = desc;
+            }
+          } catch (e) {
+            // If JSON parsing fails, display raw desc
+            console.error("Failed to parse description JSON:", e);
+            descHtml = desc;
+          }
+        } else {
+          // For other events or if description is empty, return it as is.
+          descHtml = desc;
         }
 
         return descHtml;

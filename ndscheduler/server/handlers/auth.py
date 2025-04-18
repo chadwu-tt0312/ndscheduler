@@ -73,9 +73,9 @@ class LoginHandler(tornado.web.RequestHandler):
             payload = {
                 "user_id": user["id"],
                 "username": user["username"],
-                "is_admin": user["is_admin"],
                 "category_id": user["category_id"],
-                "permission": user["permission"],
+                "is_admin": user["is_admin"],
+                "is_permission": user["is_permission"],
                 "exp": datetime.datetime.utcnow() + datetime.timedelta(days=settings.JWT_EXPIRATION_DAYS),
             }
             token = encode(payload, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
@@ -88,9 +88,9 @@ class LoginHandler(tornado.web.RequestHandler):
                 "user": {
                     "id": user["id"],
                     "username": user["username"],
-                    "is_admin": user["is_admin"],
                     "category_id": user["category_id"],
-                    "permission": user["permission"],
+                    "is_admin": user["is_admin"],
+                    "is_permission": user["is_permission"],
                 },
             }
 

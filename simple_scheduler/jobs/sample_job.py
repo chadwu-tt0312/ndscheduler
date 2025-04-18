@@ -1,6 +1,9 @@
 """A sample job that prints string."""
 
+import logging
 from ndscheduler.corescheduler import job
+
+logger = logging.getLogger(__name__)
 
 
 class AwesomeJob(job.JobBase):
@@ -19,7 +22,33 @@ class AwesomeJob(job.JobBase):
             "example_arguments": '["first argument AAA", "second argument BBB"]',
         }
 
-    def run(self, argument1=None, argument2=None, *args, **kwargs):
+    def run(self, *args, **kwargs):
+        logger.info("AwesomeJob.run() called.")
+        logger.info(f"  Received *args: {args} (type: {type(args)}, len: {len(args)})")
+        logger.info(f"  Received **kwargs: {kwargs} (type: {type(kwargs)})")
+
+        # --- 從 *args 中提取實際的 pub_args ---
+        actual_pub_args = args
+        # 檢查 args 是否意外包含了 db_config 和 db_tablenames
+        if (
+            len(args) >= 2
+            and isinstance(args[0], dict)
+            and "file_path" in args[0]  # 簡易判斷 db_config
+            and isinstance(args[1], dict)
+            and "jobs_tablename" in args[1]
+        ):  # 簡易判斷 db_tablenames
+            logger.warning(
+                "Detected unexpected db_config and db_tablenames in *args. Extracting pub_args from index 2."
+            )
+            actual_pub_args = args[2:]  # 真正的 pub_args 從第3個元素開始
+        else:
+            logger.info("Assuming *args contains only pub_args.")
+
+        # --- 從提取出的 actual_pub_args 中獲取參數 ---
+        argument1 = actual_pub_args[0] if len(actual_pub_args) > 0 else None
+        argument2 = actual_pub_args[1] if len(actual_pub_args) > 1 else None
+        # --- 結束獲取參數 ---
+
         # 如果參數未傳入，設定為空字串
         argument1 = argument1 if argument1 is not None else ""
         argument2 = argument2 if argument2 is not None else ""

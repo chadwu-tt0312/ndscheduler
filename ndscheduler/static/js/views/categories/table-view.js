@@ -86,7 +86,7 @@ define(['utils',
                             }
                         }
                     ],
-                    order: [[0, 'desc']],
+                    order: [[0, 'asc']],
                     pageLength: 10,
                     searching: true,
                     info: true
@@ -133,8 +133,8 @@ define(['utils',
                     '<th>ID</th>' +
                     '<th>Name</th>' +
                     '<th>Description</th>' +
-                    '<th>Created At</th>' +
-                    '<th>Updated At</th>' +
+                    '<th>Created</th>' +
+                    '<th>Updated</th>' +
                     '<th>Actions</th>' +
                     '</tr>' +
                     '</thead>' +

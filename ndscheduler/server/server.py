@@ -23,6 +23,14 @@ from ndscheduler.server.handlers import auth
 from ndscheduler.server.handlers import categories
 from ndscheduler.server.handlers import users
 
+
+# 新增一個簡單的 Handler 來處理 .map 請求
+class NoOpHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.set_status(204)  # 回傳 No Content
+        self.finish()
+
+
 # 確保日誌目錄存在
 if not os.path.exists("logs"):
     os.makedirs("logs")
@@ -77,6 +85,9 @@ class SchedulerServer:
             (r"/api/%s/executions/(.*)" % self.VERSION, executions.Handler),
             # Logs APIs
             (r"/api/%s/logs" % self.VERSION, audit_logs.Handler),
+            # 新增規則：攔截所有 .map 請求
+            (r"/static/.*\.map$", NoOpHandler),
+            (r".*\.map$", NoOpHandler),  # 捕捉其他可能的 .map 路徑
         ]
         self.application = tornado.web.Application(URLS, **self.tornado_settings)
 

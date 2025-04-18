@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class Handler(base.BaseHandler):
 
     def _get_logs(self):
-        """取得指定時間範圍內的稽核日誌。
+        """取得指定時間範圍內的稽核日誌，根據使用者的 category_id 過濾。
 
         這是一個阻塞操作。
 
@@ -56,8 +56,20 @@ class Handler(base.BaseHandler):
                 self.set_status(400)
                 return {"error": f"無效的時間格式：{str(e)}"}
 
-            # 查詢資料庫
-            result = self.datastore.get_audit_logs(time_range_start, time_range_end)
+            # 獲取使用者 category_id
+            user_info = self.get_current_user()
+            user_category_id = user_info.get("category_id", 0) if user_info else 0
+            # logger.info(f"Audit Logs - User: {self.username}, Retrieved Category ID: {user_category_id}")
+
+            # 根據 category_id 呼叫不同的 datastore 方法
+            if user_category_id == 0:
+                # logger.info("Audit Logs - Calling datastore.get_audit_logs()")
+                # category_id 為 0，獲取所有 Audit Logs
+                result = self.datastore.get_audit_logs(time_range_start, time_range_end)
+            else:
+                # logger.info(f"Audit Logs - Calling datastore.get_audit_logs_by_category({user_category_id})")
+                # category_id 不為 0，根據分類獲取 Audit Logs
+                result = self.datastore.get_audit_logs_by_category(user_category_id, time_range_start, time_range_end)
 
             # 處理日誌資料
             logs = []
@@ -72,9 +84,7 @@ class Handler(base.BaseHandler):
                                 if description.startswith("{") and description.endswith("}"):
                                     try:
                                         description_obj = json.loads(description)
-                                        description = json.dumps(
-                                            description_obj, ensure_ascii=False, indent=2
-                                        )
+                                        description = json.dumps(description_obj, ensure_ascii=False, indent=2)
                                     except json.JSONDecodeError:
                                         # 如果解析失敗，保持原始字串
                                         pass

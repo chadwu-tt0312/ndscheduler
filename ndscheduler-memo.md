@@ -115,7 +115,8 @@ CREATE TABLE scheduler_jobauditlog (
     job_id TEXT NOT NULL, 
     job_name TEXT NOT NULL, 
     event INTEGER NOT NULL, 
-    user TEXT, 
+    user TEXT,
+    category_id INTEGER,
     created_time DATETIME NOT NULL, 
     description TEXT
 )
@@ -124,7 +125,8 @@ CREATE TABLE scheduler_execution (
     eid VARCHAR(191) NOT NULL, 
     hostname TEXT, 
     pid INTEGER, 
-    state INTEGER NOT NULL, 
+    state INTEGER NOT NULL,
+    category_id INTEGER, 
     scheduled_time DATETIME NOT NULL, 
     updated_time DATETIME, 
     description TEXT, 
@@ -132,6 +134,37 @@ CREATE TABLE scheduler_execution (
     job_id TEXT NOT NULL, 
     task_id TEXT, 
     PRIMARY KEY (eid)
+)
+
+CREATE TABLE scheduler_job_categories (
+    job_id VARCHAR(191) NOT NULL, 
+    category_id INTEGER NOT NULL, 
+    created_at DATETIME NOT NULL, 
+    FOREIGN KEY(category_id) REFERENCES scheduler_categories (id)
+)
+
+CREATE TABLE scheduler_users (
+    id INTEGER NOT NULL, 
+    username VARCHAR(50) NOT NULL, 
+    password VARCHAR(255) NOT NULL, 
+    category_id INTEGER, 
+    is_admin BOOLEAN, 
+    is_permission BOOLEAN, 
+    created_at DATETIME NOT NULL, 
+    updated_at DATETIME, 
+    PRIMARY KEY (id), 
+    UNIQUE (username), 
+    FOREIGN KEY(category_id) REFERENCES scheduler_categories (id)
+)
+
+CREATE TABLE scheduler_categories (
+    id INTEGER NOT NULL, 
+    name VARCHAR(50) NOT NULL, 
+    description TEXT, 
+    created_at DATETIME NOT NULL, 
+    updated_at DATETIME, 
+    PRIMARY KEY (id), 
+    UNIQUE (name)
 )
 ```
 

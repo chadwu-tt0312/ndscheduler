@@ -1,7 +1,7 @@
 """Represents the core scheduler instance that actually schedules jobs."""
 
 from apscheduler.executors import pool
-import json
+import json  # noqa: F401
 import logging
 
 from ndscheduler.corescheduler import constants
@@ -94,7 +94,7 @@ class SchedulerManager:
         day=None,
         hour=None,
         minute=None,
-        **kwargs
+        **kwargs,
     ):
         """Add a job. Job infomation will be persistent in the datastore.
         This is a NON-BLOCKING operation, as internally, apscheduler calls wakeup()
@@ -111,14 +111,11 @@ class SchedulerManager:
         :return: String of job id, e.g., 6bca19736d374ef2b3df23eb278b512e
         :rtype: str
         """
-        logger.info(f"scheduler_manager.add_job() 收到參數: {kwargs}")
+        logger.info(f"scheduler_manager.add_job() 收到參數: {kwargs}, {pub_args}")
         # 處理 pub_args 格式
-        if 'pub_args' in kwargs and isinstance(kwargs['pub_args'], str):
-            try:
-                kwargs['pub_args'] = json.loads(kwargs['pub_args'])
-            except:
-                pass
-        
+        if "pub_args" in kwargs and isinstance(kwargs["pub_args"], str):
+            kwargs["pub_args"] = None
+
         return self.sched.add_scheduler_job(
             job_class_string, name, pub_args, month, day_of_week, day, hour, minute, **kwargs
         )
@@ -132,23 +129,25 @@ class SchedulerManager:
         self.sched.pause_job(job_id)
 
     def get_job(self, job_id):
-        """Returns an apscheduler.job.Job instance.
+        """Returns an apscheduler.job.Job instance with category_id attached.
         This is a BLOCKING operation, as internally, apscheduler doesn't
         call wakeup() that is async.
         :param str job_id: String for job id to be returned.
-        :return: An apscheduler.job.Job instance.
+        :return: An apscheduler.job.Job instance with category_id attribute.
         :rtype: apscheduler.job.Job
         """
         return self.sched.get_job(job_id)
 
-    def get_jobs(self):
-        """Returns a list of apscheduler.job.Job instances.
-        This is a BLOCKING operation, as internally, apscheduler doesn't
-        call wakeup() that is async.
-        :return: A list of apscheduler.job.Job instances.
-        :rtype: list
+    def get_jobs(self, category_id: int | None = None):
+        """Returns a list of apscheduler.job.Job instances, optionally filtered by category_id.
+        Each Job instance will have the category_id attribute attached.
+        This is a BLOCKING operation.
+        :param int | None category_id: Optional category ID to filter jobs. If None or 0, returns all jobs.
+        :return: A list of apscheduler.job.Job instances with category_id attribute.
+        :rtype: list[apscheduler.job.Job]
         """
-        return self.sched.get_jobs()
+        datastore = self.get_datastore()
+        return datastore.get_jobs(category_id=category_id)
 
     def get_job_task_class(self, job):
         """Shortcut to get task class.

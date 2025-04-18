@@ -104,9 +104,9 @@ def get_users_table(metadata, tablename):
         Column("id", Integer, primary_key=True),
         Column("username", Unicode(50), unique=True, nullable=False),
         Column("password", Unicode(255), nullable=False),
-        Column("is_admin", Boolean, default=False),
         Column("category_id", Integer, ForeignKey("scheduler_categories.id"), nullable=True),
-        Column("permission", Boolean, default=False),
+        Column("is_admin", Boolean, default=False),
+        Column("is_permission", Boolean, default=False),
         Column("created_at", DateTime(timezone=True), nullable=False, default=utils.get_current_datetime),
         Column(
             "updated_at",

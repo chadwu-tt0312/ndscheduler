@@ -58,19 +58,31 @@ class Handler(base.BaseHandler):
         self.finish(return_json)
 
     def _get_executions(self):
-        """Returns a dictionary of executions in a specific time range.
+        """Returns a dictionary of executions in a specific time range, filtered by user's category_id.
 
         This is a blocking operation.
 
         Returns:
             dict: Executions info.
         """
+        # 獲取時間範圍參數
         now = datetime.utcnow()
         time_range_end = self.get_argument("time_range_end", now.isoformat())
         ten_minutes_ago = now - timedelta(minutes=10)
         time_range_start = self.get_argument("time_range_start", ten_minutes_ago.isoformat())
 
-        executions = self.datastore.get_executions(time_range_start, time_range_end)
+        # 獲取使用者 category_id
+        user_info = self.get_current_user()
+        user_category_id = user_info.get("category_id", 0) if user_info else 0
+
+        # 根據 category_id 呼叫不同的 datastore 方法
+        if user_category_id == 0:
+            # category_id 為 0，獲取所有 Executions
+            executions = self.datastore.get_executions(time_range_start, time_range_end)
+        else:
+            # category_id 不為 0，根據分類獲取 Executions
+            executions = self.datastore.get_executions_by_category(user_category_id, time_range_start, time_range_end)
+
         return executions
 
     @tornado.concurrent.run_on_executor
@@ -131,12 +143,12 @@ class Handler(base.BaseHandler):
         job_name = utils.get_job_name(job)
         args = utils.get_job_args(job)
         kwargs = job.kwargs.copy()  # 創建一個副本以避免修改原始對象
-        
+
         # 確保這些參數不在 kwargs 中
-        kwargs.pop('db_config', None)
-        kwargs.pop('db_class_path', None)
-        kwargs.pop('db_tablenames', None)
-        
+        kwargs.pop("db_config", None)
+        kwargs.pop("db_class_path", None)
+        kwargs.pop("db_tablenames", None)
+
         scheduler = utils.import_from_path(settings.SCHEDULER_CLASS)
         execution_id = scheduler.run_job(
             job_name,
@@ -154,6 +166,7 @@ class Handler(base.BaseHandler):
             job.name,
             constants.AUDIT_LOG_CUSTOM_RUN,
             user=self.username,
+            category_id=getattr(job, "category_id", 0),
             description=execution_id,
         )
 

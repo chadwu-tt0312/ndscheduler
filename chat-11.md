@@ -174,7 +174,7 @@ Error fetching categories: {"error": {"code": 500, "message": "Internal Server E
 
 ---
 
-## q-15 (沒解決)
+## q-15
 
 紅框內容重複
 
@@ -214,17 +214,83 @@ jobs & executions & logs 都是用 *.js 檔案處理邏輯，users & categories 
 
 ## q-19
 
+讓我查看前端部分，看看是如何從服務器獲取任務數據的。
+
 ---
 
 ## answer-19
 
----
-
-## q-9
+2025-04-17_02-59-修正工作頁面資料顯示錯誤.md
 
 ---
 
-## answer-9
+## q-20
+
+users.py & categories.py 請參考 executions.py 的寫法與命名方式，重新建立。
+
+---
+
+## answer-20
+
+2025-04-17_06-23-登入頁面流程詳解.md
+
+---
+
+## q-21
+
+1. jobs & executions & auditlog 頁面需要根據登入的使用者的 category_id 來顯示資料。
+	- category_id = 0 則顯示時間範圍內的全部資料
+	- category_id <> 0 則顯示 category_id == n 並且時間範圍內的資料
+2. 新增 job 時，需要自動根據使用者的 category_id 來決定是否要新增 scheduler_job_categories 資料表紀錄
+	- category_id = 0 則不需要新增 scheduler_job_categories 資料表紀錄
+	- category_id <> 0 則需要新增 scheduler_job_categories 資料表紀錄
+3. scheduler_execution 資料表新增時，需要填入使用者的 category_id
+4. scheduler_jobauditlog 資料表新增時，需要填入使用者的 category_id
+5. scheduler.py 裡面 extra_kwargs["category_id"] = 0 (line:18) 需要改為使用 scheduler_users table 第一筆資料裡的 category_id
+6. ndscheduler\server\handlers\jobs.py 裡面 extra_kwargs["category_id"] = 0 (line:399) 需要改為使用 scheduler_job_categories table 裡的jobid 對應 category_id
+
+請將上述要求所需要改變的部分先列出來，討論確認後再開始變更
+
+---
+
+## answer-21
+
+2025-04-17_13-34-調整依據使用者類別的資料顯示.md
+
+---
+
+## q-22
+
+如果 get_job() 可以在取得 scheduler_jobs table 的同時，一併取得 scheduler_job_categories table 中的 category_id。那麼後續很多功能就會變得比較方便
+需求 3. 改為確認所有呼叫 datastore.add_execution() 所標註的 TODO 是否需要修改取得 category_id 的方式
+需求 4. 改為確認所有呼叫 datastore.add_audit_log() 所標註的 TODO 是否需要修改取得 category_id 的方式
+需求 5. 在這裡的「第一筆」的定義以 created_at 欄位時間最早並且 is_admin=true 為基準
+需求 6. get_job() 的改進版本可以達成目的
+Execution 和 Audit Log 本身適合跟隨 Job 的分類
+請先列出增加支援 category_id 過濾的方法要修改那些功能
+
+---
+
+## q-23
+
+- 確保 scheduler_jobs 和 scheduler_job_categories 只有一對一的關聯
+  - 如果沒有關聯紀錄 (例如該 Job 不需要分類，或還未被分類)，則 category_id 可以回傳 0 。
+- 修改 Datastore 層的方法
+  - get_job() 在 scheduler_manager.py 之中
+
+---
+
+## q-24
+
+- 沒有 ndscheduler/datastore/database.py 檔案
+- 請先搜尋並確認 get_job() 的實作位置
+- 目前只在 ndscheduler\corescheduler\datastore\base.py 的 line:82 super(DatastoreBase, self).__init__(url=self.get_db_url(), tablename=jobs_tablename) 找到 scheduler_jobs 相關功能
+
+---
+
+## q-25
+
+
 
 ---
 

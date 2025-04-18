@@ -25,8 +25,8 @@ DEFAULT_TIMEZONE = "UTC"
 # Otherwise, if it's misfired over 1 hour, the scheduler will not rerun it.
 DEFAULT_JOB_MISFIRE_GRACE_SEC = 3600
 
-# Number of args passed to jobs
-JOB_ARGS = 5
+# Number of internal args passed to jobs before the actual pub_args
+JOB_ARGS = 3
 
 #
 # Execution status

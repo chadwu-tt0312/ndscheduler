@@ -63,15 +63,15 @@ define(['utils',
                     columns: [
                         { data: 'id' },
                         { data: 'username' },
+                        { data: 'category_id' },
                         {
                             data: 'is_admin',
                             render: function (data, type, row) {
                                 return data ? 'Yes' : 'No';
                             }
                         },
-                        { data: 'category_id' },
                         {
-                            data: 'permission', render: function (data, type, row) {
+                            data: 'is_permission', render: function (data, type, row) {
                                 return data ? 'read-only' : 'full-ctrl';
                             }
                         },
@@ -97,7 +97,7 @@ define(['utils',
                             }
                         }
                     ],
-                    order: [[0, 'desc']],
+                    order: [[0, 'asc']],
                     pageLength: 10,
                     searching: true,
                     info: true
@@ -143,11 +143,11 @@ define(['utils',
                     '<tr>' +
                     '<th>ID</th>' +
                     '<th>Username</th>' +
-                    '<th>Admin</th>' +
                     '<th>Category</th>' +
+                    '<th>Admin</th>' +
                     '<th>Permission</th>' +
-                    '<th>Created At</th>' +
-                    '<th>Updated At</th>' +
+                    '<th>Created</th>' +
+                    '<th>Updated</th>' +
                     '<th>Actions</th>' +
                     '</tr>' +
                     '</thead>' +
@@ -188,7 +188,7 @@ define(['utils',
                     '</div>' +
                     '<div class="checkbox">' +
                     '<label>' +
-                    '<input type="checkbox" id="permission"> Enable permission' +
+                    '<input type="checkbox" id="is-permission"> Enable permission' +
                     '</label>' +
                     '</div>' +
                     '</form>' +
@@ -220,7 +220,7 @@ define(['utils',
                 $('#password').val('');
                 $('#user-category-id').val('');
                 $('#is-admin').prop('checked', false);
-                $('#permission').prop('checked', false);
+                $('#is-permission').prop('checked', false);
 
                 // Change title
                 $('#userFormModalLabel').text('Add User');
@@ -245,7 +245,7 @@ define(['utils',
                     $('#password').val(''); // Don't show original password
                     $('#user-category-id').val(user.get('category_id') || '');
                     $('#is-admin').prop('checked', user.get('is_admin'));
-                    $('#permission').prop('checked', user.get('permission'));
+                    $('#is-permission').prop('checked', user.get('is_permission'));
 
                     // Change title
                     $('#userFormModalLabel').text('Edit User');
@@ -265,7 +265,7 @@ define(['utils',
                     password: $('#password').val(),
                     category_id: $('#user-category-id').val() || null,
                     is_admin: $('#is-admin').is(':checked'),
-                    permission: $('#permission').is(':checked')
+                    is_permission: $('#is-permission').is(':checked')
                 };
 
                 // Remove password field if empty and in edit mode

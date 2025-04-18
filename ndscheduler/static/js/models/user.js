@@ -34,9 +34,9 @@ define(['backbone',
             defaults: {
                 id: '',
                 username: '',
-                is_admin: false,
                 category: '',
-                permission: '',
+                is_admin: false,
+                is_permission: false,
                 created_at: '',
                 updated_at: ''
             },
@@ -69,7 +69,14 @@ define(['backbone',
              * 返回用戶管理員狀態的字符串表示
              */
             getIsAdminString: function () {
-                return this.get('is_admin') ? '是' : '否';
+                return this.get('is_admin') ? 'Yes' : 'No';
+            },
+
+            /**
+             * 返回用戶權限的字符串表示
+             */
+            getIsPermissionString: function () {
+                return this.get('is_permission') ? 'read-only' : 'full-ctrl';
             }
         });
     }); 

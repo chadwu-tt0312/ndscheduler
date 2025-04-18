@@ -2,12 +2,11 @@
 
 import json
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Any, List
 from uuid import uuid4
 
 from apscheduler.schedulers import tornado as apscheduler_tornado
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.util import check_callable_args
 
 from ndscheduler.corescheduler import constants
 from ndscheduler.corescheduler import utils
@@ -69,8 +68,6 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
         job_class_path: str,
         job_id: str,
         db_class_path: str,
-        db_config: Optional[Dict[str, Any]],
-        db_tablenames: Optional[Dict[str, str]],
         *args,
         **kwargs,
     ) -> Optional[str]:
@@ -80,17 +77,32 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
             job_class_path: String for job class, e.g., 'myscheduler.jobs.a_job.NiceJob'
             job_id: Job id
             db_class_path: String for datstore class, e.g. 'datastores.DatastoreSqlite'
-            db_config: Dictionary containing values for db connection
-            db_tablenames: Dictionary containing the names for the jobs,
-                executions, or audit logs table
-            *args: List of args provided to the job class to be run
-            **kwargs: Keyword arguments
+            *args: List of args (pub_args) provided to the job class to be run
+            **kwargs: Keyword arguments (including db_config, db_tablenames, user, etc.)
 
         Returns:
             str: Execution id if successful, None otherwise
         """
         execution_id = utils.generate_uuid()
+
+        # --- 從 kwargs 獲取 db_config 和 db_tablenames ---
+        db_config = kwargs.get("db_config")
+        db_tablenames = kwargs.get("db_tablenames")
+        kwargs.pop("db_config", None)
+        kwargs.pop("db_tablenames", None)
+
         datastore = utils.get_datastore_instance(db_class_path, db_config, db_tablenames)
+
+        # 獲取 Job 的 category_id
+        job_category_id = 0  # 預設值
+        try:
+            category_info = datastore.get_job_category(job_id)
+            if category_info and isinstance(category_info, dict) and "id" in category_info:
+                job_category_id = category_info["id"]
+            elif isinstance(category_info, int):  # 相容舊版可能直接回傳 ID 的情況
+                job_category_id = category_info
+        except Exception as cat_err:
+            logger.warning(f"為 job {job_id} 獲取 category_id 失敗: {cat_err}")
 
         try:
             job_class = utils.import_from_path(job_class_path)
@@ -101,6 +113,7 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
                 job_id,
                 constants.EXECUTION_STATUS_SCHEDULED,
                 description=job_class.get_scheduled_description(),
+                category_id=job_category_id,  # 使用獲取的 category_id
             )
 
             # Run the job
@@ -228,7 +241,7 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
         # --- 確定要使用的 Job ID ---
         # 如果 kwargs 中提供了 job_id (例如重建時)，則使用它，否則生成新的 UUID
         job_id_to_use = kwargs.get("job_id", uuid4().hex)
-        logger.info(f"確定使用的 Job ID: {job_id_to_use}, (是否由外部提供: {'job_id' in kwargs})")
+        # logger.info(f"確定使用的 Job ID: {job_id_to_use}, (是否由外部提供: {'job_id' in kwargs})")
 
         # 建立 CronTrigger
         trigger = CronTrigger(
@@ -250,16 +263,21 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
         job_func_kwargs = {
             "db_config": db_config,  # 內部參數
             "db_tablenames": db_tablenames,  # 內部參數
-            "pub_args": pub_args,  # 任務的公開參數
         }
-        # 添加其他從上層傳遞下來的 kwargs (例如 'user')，但要排除 'job_id'
-        scheduler_params_to_exclude = {"job_id"}
+        # 添加其他從上層傳遞下來的 kwargs (例如 'user')，但要排除 'job_id' 和 'pub_args'
+        scheduler_params_to_exclude = {"job_id", "pub_args"}
         for key, value in kwargs.items():
             if key not in scheduler_params_to_exclude:
                 job_func_kwargs[key] = value
 
-        logger.info(f"準備調用 APScheduler add_job: id={job_id_to_use}, name={name}")
-        logger.debug(f"APScheduler add_job - args: {[job_class_string, job_id_to_use, self.datastore_class_path]}")
+        # --- 準備傳遞給 APScheduler add_job 的 args ---
+        job_func_args = [job_class_string, job_id_to_use, self.datastore_class_path]
+        # 將 pub_args (它本身是個 list) 的元素添加到 args 列表中
+        if pub_args:
+            job_func_args.extend(pub_args)
+
+        # logger.info(f"準備調用 APScheduler add_job: id={job_id_to_use}, name={name}")
+        logger.debug(f"APScheduler add_job - args: {job_func_args}")  # 使用新的 args
         logger.debug(f"APScheduler add_job - kwargs: {job_func_kwargs}")
 
         # 新增任務到排程器 (調用 APScheduler 的 add_job)
@@ -267,7 +285,7 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
             # 注意：APScheduler 的 add_job 會將 job_id_to_use 添加到傳遞給 func 的 args[1]
             self.add_job(
                 func=self.run_job,
-                args=[job_class_string, job_id_to_use, self.datastore_class_path],
+                args=job_func_args,  # 使用包含 pub_args 的新 args 列表
                 kwargs=job_func_kwargs,  # 傳遞過濾後的 kwargs
                 trigger=trigger,
                 id=job_id_to_use,  # 明確設定 APScheduler job 的 ID
@@ -275,7 +293,7 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
                 replace_existing=True,  # 確保重建時能替換
                 misfire_grace_time=constants.DEFAULT_JOB_MISFIRE_GRACE_SEC,
             )
-            logger.info(f"APScheduler add_job 調用成功 for job_id: {job_id_to_use}")
+            # logger.info(f"APScheduler add_job 調用成功 for job_id: {job_id_to_use}")
         except Exception as add_job_error:
             logger.error(f"調用 APScheduler add_job 失敗 for job_id: {job_id_to_use}: {add_job_error}", exc_info=True)
             raise  # 將異常重新拋出，讓上層處理
@@ -287,6 +305,7 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
                 job_name=name,
                 event=constants.AUDIT_LOG_ADDED,
                 user=kwargs.get("user", ""),  # 從原始 kwargs 中獲取 user
+                category_id=kwargs.get("category_id", 0),  # 從原始 kwargs 中獲取 category_id
                 description=json.dumps(pub_args),
             )
         except Exception as audit_log_error:
@@ -314,8 +333,9 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
         if not job:
             return
 
-        # Create new trigger if cron strings are modified
-        if any(key in kwargs for key in ["month", "day", "day_of_week", "hour", "minute"]):
+        # --- 處理觸發器修改 ---
+        trigger_keys = {"month", "day", "day_of_week", "hour", "minute"}
+        if any(key in kwargs for key in trigger_keys):
             trigger = CronTrigger(
                 month=kwargs.pop("month", None),
                 day=kwargs.pop("day", None),
@@ -324,12 +344,24 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
                 minute=kwargs.pop("minute", None),
                 timezone=self.timezone,
             )
+            # 使用 reschedule_job 修改觸發器，它不會引發 AttributeError
             self.reschedule_job(job_id, trigger=trigger)
 
-        # Modify other job attributes
-        self.modify_job(job_id, **kwargs)
+        # --- 過濾可修改的 Job 屬性 ---
+        # 常見的可直接修改屬性 (參考 APScheduler Job 類別)
+        # MODIFIABLE_JOB_ATTRS = {"name", "max_instances", "misfire_grace_time", "coalesce"}
+        MODIFIABLE_JOB_ATTRS = {"name"}
+        filtered_kwargs = {}
+        for key, value in kwargs.items():
+            # 只保留允許修改的屬性，並且排除已處理的觸發器鍵
+            if key in MODIFIABLE_JOB_ATTRS and key not in trigger_keys:
+                filtered_kwargs[key] = value
 
-        # Add audit log
+        # --- 修改其他 Job 屬性 (只傳遞過濾後的屬性) ---
+        if filtered_kwargs:
+            self.modify_job(job_id, **filtered_kwargs)
+
+        # --- 新增稽核日誌 (記錄原始意圖修改的內容) ---
         datastore = self._lookup_jobstore("default")
         datastore.add_audit_log(
             job_id=job_id,
