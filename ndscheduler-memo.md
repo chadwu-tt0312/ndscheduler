@@ -91,8 +91,16 @@
 ### cUrl
 
 ```bash
-curl -X POST http://localhost:8888/api/v1/jobs \
-  -H "Content-Type: application/json" \
+curl -X POST http://localhost:8888/api/v1/auth/login 
+  -H 'Content-Type: application/json' 
+  -d '{
+    "username": "user",
+    "password": "password"
+  }'
+
+curl -X POST http://localhost:8888/api/v1/jobs 
+  -H 'Content-Type: application/json' 
+  -H 'Authorization: Bearer {{LOGIN_TOKEN}}' 
   -d '{
     "job_class_string": "simple_scheduler.jobs.sample_job.AwesomeJob",
     "name": "API 新增的任務",
