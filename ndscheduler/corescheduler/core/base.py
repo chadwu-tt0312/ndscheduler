@@ -116,6 +116,9 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
                 category_id=job_category_id,  # 使用獲取的 category_id
             )
 
+            # 將 category_id 添加到 kwargs 中，這樣就能傳遞給 run_scheduler_job
+            kwargs["category_id"] = job_category_id
+
             # Run the job
             cls.run_scheduler_job(job_class, job_id, execution_id, datastore, *args, **kwargs)
 
@@ -172,7 +175,25 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
             *args: List of args provided to the job class to be run
             **kwargs: Keyword arguments
         """
-        cls.pre_run(job_class, job_id, execution_id, *args, **kwargs)
+        # --- 從 *args 中提取實際的 pub_args ---
+        actual_pub_args = args
+
+        # 檢查 args 是否意外包含了 db_config 和 db_tablenames
+        if (
+            len(args) >= 2
+            and isinstance(args[0], dict)
+            and "file_path" in args[0]  # 簡易判斷 db_config
+            and isinstance(args[1], dict)
+            and "jobs_tablename" in args[1]
+        ):  # 簡易判斷 db_tablenames
+            logger.debug("Detected unexpected db_config and db_tablenames in *args. Extracting pub_args from index 2.")
+            actual_pub_args = args[2:]  # 真正的 pub_args 從第3個元素開始
+        else:
+            logger.debug("Assuming *args contains only pub_args.")
+
+        # logger.info(f"Received *args: {actual_pub_args} (type: {type(actual_pub_args)}, len: {len(actual_pub_args)})")
+        # logger.info(f"Received **kwargs: {kwargs} (type: {type(kwargs)})")
+        cls.pre_run(job_class, job_id, execution_id, *actual_pub_args, **kwargs)
 
         try:
             # Update execution status to running
@@ -184,8 +205,8 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
                 description=job_class.get_running_description(),
             )
 
-            # Run the job
-            result = job_class.run_job(job_id, execution_id, *args, **kwargs)
+            # Run the job with actual_pub_args instead of original args
+            result = job_class.run_job(job_id, execution_id, *actual_pub_args, **kwargs)
             result_json = json.dumps(result, indent=4, sort_keys=True)
 
             # Update execution status to succeeded
@@ -196,7 +217,7 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
                 result=result_json,
             )
 
-            cls.post_run(job_class, job_id, execution_id, result_json, *args, **kwargs)
+            cls.post_run(job_class, job_id, execution_id, result_json, *actual_pub_args, **kwargs)
 
         except Exception as e:
             logging.exception(f"Error executing job {job_id}: {str(e)}")
@@ -298,16 +319,35 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
             logger.error(f"調用 APScheduler add_job 失敗 for job_id: {job_id_to_use}: {add_job_error}", exc_info=True)
             raise  # 將異常重新拋出，讓上層處理
 
-        # 新增稽核日誌 (使用我們決定的 job_id)
         try:
-            datastore.add_audit_log(
-                job_id=job_id_to_use,  # 使用最終確定的 ID 記錄日誌
-                job_name=name,
-                event=constants.AUDIT_LOG_ADDED,
-                user=kwargs.get("user", ""),  # 從原始 kwargs 中獲取 user
-                category_id=kwargs.get("category_id", 0),  # 從原始 kwargs 中獲取 category_id
-                description=json.dumps(pub_args),
-            )
+            # 獲取正確的 category_id (從 job_categories_table 中獲取，如果存在的話)
+            audit_category_id = 0  # 預設值
+            try:
+                # 先嘗試從資料庫中獲取 job_id 對應的 category_id
+                datastore = self._lookup_jobstore("default")
+                audit_category_id = datastore.get_job_category(job_id_to_use)
+                # 如果找不到，再使用 kwargs 中的值作為備用
+                if audit_category_id == 0:
+                    audit_category_id = kwargs.get("category_id", 0)
+            except Exception as e:
+                logger.warning(f"獲取 job {job_id_to_use} 的 category_id 失敗: {e}，使用預設值 0")
+                audit_category_id = kwargs.get("category_id", 0)
+
+            # 新增稽核日誌 (使用我們決定的 job_id)
+            # 檢查是否是重建操作（kwargs 中包含 job_id）
+            is_recreate_operation = "job_id" in kwargs
+            # 只有當不是重建操作時，才記錄 AUDIT_LOG_ADDED 事件
+            if not is_recreate_operation:
+                datastore.add_audit_log(
+                    job_id=job_id_to_use,  # 使用最終確定的 ID 記錄日誌
+                    job_name=name,
+                    event=constants.AUDIT_LOG_ADDED,
+                    user=kwargs.get("user", ""),  # 從原始 kwargs 中獲取 user
+                    category_id=audit_category_id,  # 使用從關聯表獲取的 category_id
+                    description=json.dumps(pub_args),
+                )
+            else:
+                logger.debug(f"跳過為重建操作記錄 AUDIT_LOG_ADDED 事件 (job_id: {job_id_to_use})")
         except Exception as audit_log_error:
             logger.error(f"添加稽核日誌失敗 for job_id: {job_id_to_use}: {audit_log_error}", exc_info=True)
             # 即使日誌失敗，任務可能已成功添加，所以不在此處拋出異常
@@ -361,15 +401,16 @@ class BaseScheduler(apscheduler_tornado.TornadoScheduler):
         if filtered_kwargs:
             self.modify_job(job_id, **filtered_kwargs)
 
+        # jobs.py _modify_job() 中已經新增稽核日誌，所以這裡不重複新增
         # --- 新增稽核日誌 (記錄原始意圖修改的內容) ---
-        datastore = self._lookup_jobstore("default")
-        datastore.add_audit_log(
-            job_id=job_id,
-            job_name=kwargs.get("name", job.name),
-            event=constants.AUDIT_LOG_MODIFIED,
-            user=kwargs.get("user", ""),
-            description=json.dumps(kwargs.get("pub_args", [])),
-        )
+        # datastore = self._lookup_jobstore("default")
+        # datastore.add_audit_log(
+        #     job_id=job_id,
+        #     job_name=kwargs.get("name", job.name),
+        #     event=constants.AUDIT_LOG_MODIFIED,
+        #     user=kwargs.get("user", ""),
+        #     description=json.dumps(kwargs.get("pub_args", [])),
+        # )
 
     def _process_jobs(self):
         """Process due jobs.

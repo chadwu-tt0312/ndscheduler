@@ -305,6 +305,27 @@
                         var element = document.getElementById(pageId);
                         if (element) element.style.display = "none";
                     });
+
+                    // // 驗證用戶身份
+                    // fetch("/api/v1/auth/verify", {
+                    //     method: "GET",
+                    //     headers: {
+                    //         "Content-Type": "application/json",
+                    //     },
+                    // })
+                    //     .then((response) => {
+                    //         if (!response.ok) {
+                    //             // 如果驗證失敗，清除 cookie 並重定向到登入頁面
+                    //             document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/;";
+                    //             window.location.href = "/login";
+                    //         }
+                    //     })
+                    //     .catch((error) => {
+                    //         console.error("驗證失敗:", error);
+                    //         // 如果發生錯誤，也清除 cookie 並重定向
+                    //         document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:01 GMT; path=/;";
+                    //         window.location.href = "/login";
+                    //     });
                 }
             });
         </script>

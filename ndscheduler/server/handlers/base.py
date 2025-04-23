@@ -93,6 +93,24 @@ class BaseHandler(tornado.web.RequestHandler):
 
         try:
             payload = decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+
+            # 驗證用戶是否存在於資料庫中
+            username = payload.get("username")
+            if username:
+                # 確保 scheduler_manager 和 datastore 已初始化
+                if not hasattr(self, "scheduler_manager"):
+                    self.scheduler_manager = self.application.settings["scheduler_manager"]
+                if not hasattr(self, "datastore"):
+                    self.datastore = self.scheduler_manager.get_datastore()
+
+                # 從資料庫取得用戶資訊
+                user_from_db = self.datastore.get_user(username)
+
+                # 如果用戶不存在於資料庫中，返回 None
+                if not user_from_db:
+                    print(f"Token 中的用戶 {username} 不存在於資料庫中")
+                    return None
+
             return payload
         except ExpiredSignatureError:
             return None

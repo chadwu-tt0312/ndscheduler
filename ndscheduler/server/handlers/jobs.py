@@ -160,22 +160,26 @@ class Handler(base.BaseHandler):
         if "user" not in self.json_args:
             self.json_args["user"] = self.username
 
-        # 這是非阻塞函數
-        # 它會立即返回 job_id
+        # 獲取用戶的 category_id，用於稍後設定任務分類
+        user_info = self.get_current_user()
+        user_category_id = user_info.get("category_id") if user_info else None
+
+        # 1. 如果用戶有 category_id，先將其添加到 json_args 中
+        # 這樣 add_job 中創建任務時就會有 category_id 參數
+        if user_category_id is not None:
+            self.json_args["category_id"] = user_category_id
+
+        # 2. 添加任務 (非阻塞函數，立即返回 job_id)
         job_id = self.scheduler_manager.add_job(**self.json_args)
 
-        # --- 新增 Job 分類關聯邏輯 ---
+        # 3. 設定任務分類關聯
         try:
-            user_info = self.get_current_user()
-            user_category_id = user_info.get("category_id") if user_info else None
-
-            if user_category_id is not None and user_category_id != 0:
+            if user_category_id is not None:
                 # logger.info(f"為新任務 {job_id} 設定分類 ID: {user_category_id}")
                 self.datastore.set_job_category(job_id, user_category_id)
         except Exception as e:
             # 記錄錯誤，但不影響 Job 的創建
             logger.error(f"為任務 {job_id} 設定分類時發生錯誤: {e}", exc_info=True)
-        # --- 結束新增 Job 分類關聯邏輯 ---
 
         response = {"job_id": job_id}
         self.set_status(201)

@@ -112,6 +112,13 @@ class SchedulerManager:
         :rtype: str
         """
         logger.info(f"scheduler_manager.add_job() 收到參數: {kwargs}, {pub_args}")
+
+        # 檢查 category_id 是否在 kwargs 中
+        if "category_id" not in kwargs:
+            logger.warning("add_job() 未收到 category_id 參數")
+        # else:
+        #     logger.info(f"add_job() 收到 category_id={kwargs['category_id']}")
+
         # 處理 pub_args 格式
         if "pub_args" in kwargs and isinstance(kwargs["pub_args"], str):
             kwargs["pub_args"] = None

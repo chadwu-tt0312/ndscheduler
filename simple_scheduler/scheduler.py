@@ -62,13 +62,23 @@ class SimpleServer(server.SchedulerServer):
             extra_kwargs = {}
             extra_kwargs["category_id"] = first_admin_category_id
             extra_kwargs["user"] = first_admin_username
-            self.scheduler_manager.add_job(
+
+            # 添加任務並保存返回的 job_id
+            job_id = self.scheduler_manager.add_job(
                 job_class_string="simple_scheduler.jobs.sample_job.AwesomeJob",
                 name="My Awesome Job",
                 pub_args=["first parameter", {"second parameter": "can be a dict"}],
                 minute="*/1",
                 **extra_kwargs,
             )
+
+            if job_id is not None:
+                # 重要：手動設置任務-類別關聯
+                try:
+                    datastore = self.scheduler_manager.get_datastore()
+                    datastore.set_job_category(job_id, first_admin_category_id)
+                except Exception as e:
+                    logger.error(f"為示例任務設置類別時發生錯誤: {e}", exc_info=True)
 
 
 if __name__ == "__main__":

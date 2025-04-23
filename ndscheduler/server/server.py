@@ -70,6 +70,7 @@ class SchedulerServer:
             (r"/login", index.LoginHandler),
             # Auth APIs
             (r"/api/%s/auth/login" % self.VERSION, auth.LoginHandler),
+            (r"/api/%s/auth/verify" % self.VERSION, auth.VerifyHandler),  # 新增身份驗證檢查 API
             # Users APIs
             (r"/api/%s/users" % self.VERSION, users.Handler),
             (r"/api/%s/users/current" % self.VERSION, users.CurrentUserHandler),

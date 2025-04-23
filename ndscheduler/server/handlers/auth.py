@@ -3,7 +3,7 @@
 import json
 import logging
 import datetime
-from jwt import encode
+from jwt import encode, decode, ExpiredSignatureError, InvalidTokenError
 
 import tornado.web
 
@@ -148,3 +148,90 @@ def admin_required(method):
         return method(self, *args, **kwargs)
 
     return wrapper
+
+
+class VerifyHandler(tornado.web.RequestHandler):
+    """處理用戶身份驗證檢查請求。"""
+
+    def initialize(self):
+        """初始化處理器。"""
+        self.scheduler_manager = self.application.settings["scheduler_manager"]
+        self.datastore = self.scheduler_manager.get_datastore()
+
+    def set_default_headers(self):
+        """設定回應標頭。"""
+        self.set_header("Content-Type", "application/json")
+        self.set_header("Access-Control-Allow-Origin", "*")
+        self.set_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+        self.set_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+
+    def options(self):
+        """處理 OPTIONS 請求。"""
+        self.set_status(204)
+        self.finish()
+
+    def get(self):
+        """處理身份驗證檢查請求。
+
+        檢查用戶是否已登入並且存在於資料庫中。
+
+        Returns:
+            成功時返回用戶資訊
+            失敗時返回錯誤訊息
+        """
+        try:
+            # 從 cookie 中取得 token
+            token = self.get_secure_cookie("token")
+            if not token:
+                # 從 Authorization 標頭取得 token
+                auth_header = self.request.headers.get("Authorization")
+                if auth_header and auth_header.startswith("Bearer "):
+                    token = auth_header.split(" ")[1]
+                else:
+                    self.set_status(401)
+                    self.write({"error": "未提供 token"})
+                    return
+            else:
+                token = token.decode("utf-8")
+
+            # 解析 token
+            try:
+                payload = decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
+                username = payload.get("username")
+
+                # 檢查用戶是否存在
+                if not username:
+                    self.set_status(401)
+                    self.write({"error": "無效的 token 格式"})
+                    return
+
+                user = self.datastore.get_user(username)
+                if not user:
+                    self.set_status(401)
+                    self.write({"error": "用戶不存在"})
+                    return
+
+                # 返回用戶資訊
+                response_data = {
+                    "user": {
+                        "id": user["id"],
+                        "username": user["username"],
+                        "category_id": user["category_id"],
+                        "is_admin": user["is_admin"],
+                        "is_permission": user["is_permission"],
+                    }
+                }
+
+                self.write(response_data)
+
+            except ExpiredSignatureError:
+                self.set_status(401)
+                self.write({"error": "token 已過期"})
+            except InvalidTokenError:
+                self.set_status(401)
+                self.write({"error": "無效的 token"})
+
+        except Exception as e:
+            logger.error("驗證失敗: %s", str(e), exc_info=True)
+            self.set_status(500)
+            self.write({"error": str(e)})

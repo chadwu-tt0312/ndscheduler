@@ -140,6 +140,7 @@ CREATE TABLE scheduler_job_categories (
     job_id VARCHAR(191) NOT NULL, 
     category_id INTEGER NOT NULL, 
     created_at DATETIME NOT NULL, 
+    PRIMARY KEY (job_id), 
     FOREIGN KEY(category_id) REFERENCES scheduler_categories (id)
 )
 

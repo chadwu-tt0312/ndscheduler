@@ -21,7 +21,7 @@ def get_job_categories_table(metadata, tablename):
     return Table(
         tablename,
         metadata,
-        Column("job_id", Unicode(191), nullable=False),
+        Column("job_id", Unicode(191), nullable=False, primary_key=True),
         Column("category_id", Integer, ForeignKey("scheduler_categories.id"), nullable=False),
         Column(
             "created_at",

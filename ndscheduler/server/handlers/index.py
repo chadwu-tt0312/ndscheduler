@@ -39,6 +39,31 @@ class LoginHandler(base.BaseHandler):
         print(f"當前用戶狀態: {current_user}")
 
         if current_user:
+            # 驗證用戶是否仍然存在於資料庫中
+            username = current_user.get("username")
+            if username:
+                try:
+                    if not hasattr(self, "datastore"):
+                        # 初始化 datastore
+                        self.scheduler_manager = self.application.settings["scheduler_manager"]
+                        self.datastore = self.scheduler_manager.get_datastore()
+
+                    user_from_db = self.datastore.get_user(username)
+                    if not user_from_db:
+                        print(f"用戶 {username} 不存在於資料庫中，清除 cookie 並顯示登入頁面")
+                        # 清除 cookie
+                        self.clear_cookie("token")
+                        self.render("login.html")
+                        return
+
+                    print(f"用戶 {username} 已登入且存在於資料庫中，重定向到主頁")
+                except Exception as e:
+                    print(f"驗證用戶時發生錯誤: {e}")
+                    # 如有錯誤，清除 cookie 並顯示登入頁面
+                    self.clear_cookie("token")
+                    self.render("login.html")
+                    return
+
             print("用戶已登入，重定向到主頁")
             self.redirect("/")
             return

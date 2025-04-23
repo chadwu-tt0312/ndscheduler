@@ -290,15 +290,33 @@ Execution 和 Audit Log 本身適合跟隨 Job 的分類
 
 ## q-25
 
-
-
----
-
-## q-9
+為什麼修改 "My Awesome Job" 的 minute: */1 => */30
+會出現兩筆 audit logs 紀錄?
 
 ---
 
-## answer-9
+## answer-25
+
+2025-04-18_10-17-為何修改任務設定會產生兩筆紀錄.md
+
+---
+
+## q-26
+
+URL 輸入 "localhost:8888/login" 但是卻跳到 jobs 頁面。此時 scheduler_users 資料表只有一筆資料 "user"， 並沒有 "u03" 這筆資料。
+邏輯上不應該跳轉。
+
+---
+
+## answer-26
+
+2025-04-23_06-32-調查-scheduler-jobauditlog-錯誤原因.md
+
+---
+
+## q-27
+
+為何 add job 後 scheduler_job_categories 資料表沒有對應的資料?
 
 ---
 

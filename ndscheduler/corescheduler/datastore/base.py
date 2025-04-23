@@ -640,18 +640,62 @@ class DatastoreBase(sched_sqlalchemy.SQLAlchemyJobStore):
             job_id (str): 任務 ID
             category_id (int): 分類 ID
         """
-        with Session(self.engine) as session:
-            # 先刪除現有的分類關聯
-            stmt = self.job_categories_table.delete().where(self.job_categories_table.c.job_id == job_id)
-            session.execute(stmt)
+        try:
+            # 首先驗證 category_id 是否有效
+            if category_id is None:
+                logger.warning(f"設定任務 {job_id} 的分類時收到無效的 category_id: {category_id}")
+                return
 
-            # 新增新的分類關聯
-            stmt = self.job_categories_table.insert().values(
-                job_id=job_id,
-                category_id=category_id,
-            )
-            session.execute(stmt)
-            session.commit()
+            # logger.info(f"開始設定任務 {job_id} 的分類為 {category_id}")
+
+            with Session(self.engine) as session:
+                # 先檢查是否已存在關聯
+                check_stmt = select(self.job_categories_table).where(self.job_categories_table.c.job_id == job_id)
+                existing = session.execute(check_stmt).first()
+                if existing:
+                    logger.info(f"任務 {job_id} 已存在分類關聯: {existing.category_id}，將更新為 {category_id}")
+
+                # 先刪除現有的分類關聯
+                delete_stmt = self.job_categories_table.delete().where(self.job_categories_table.c.job_id == job_id)
+                delete_result = session.execute(delete_stmt)
+                # logger.info(f"刪除任務 {job_id} 的現有分類關聯，影響 {delete_result.rowcount} 行")
+
+                # 新增新的分類關聯
+                insert_stmt = self.job_categories_table.insert().values(
+                    job_id=job_id,
+                    category_id=category_id,
+                )
+                insert_result = session.execute(insert_stmt)
+                # logger.info(f"為任務 {job_id} 新增分類關聯 {category_id}，結果: {insert_result.rowcount} 行已插入")
+
+                # 更新該任務的稽核日誌記錄，確保 category_id 一致
+                # 只更新最近的 AUDIT_LOG_ADDED 事件記錄
+                update_stmt = (
+                    self.auditlogs_table.update()
+                    .where(
+                        and_(
+                            self.auditlogs_table.c.job_id == job_id,
+                            self.auditlogs_table.c.event == constants.AUDIT_LOG_ADDED,
+                        )
+                    )
+                    .values(category_id=category_id)
+                )
+                update_result = session.execute(update_stmt)
+                # logger.info(f"更新任務 {job_id} 的稽核日誌記錄的 category_id，影響 {update_result.rowcount} 行")
+
+                session.commit()
+                # logger.info(f"成功設定任務 {job_id} 的分類為 {category_id}")
+
+                # 最後確認關聯是否已存在
+                confirm_stmt = select(self.job_categories_table).where(self.job_categories_table.c.job_id == job_id)
+                confirm_result = session.execute(confirm_stmt).first()
+                if confirm_result:
+                    logger.info(f"Updated job [{job_id}], category_id = {confirm_result.category_id}")
+                else:
+                    logger.warning(f"無法確認任務 {job_id} 的分類設定，未找到相關記錄")
+        except Exception as e:
+            logger.error(f"設定任務 {job_id} 的分類為 {category_id} 時發生錯誤: {e}", exc_info=True)
+            raise
 
     def get_job_category(self, job_id):
         """取得任務的分類 ID。

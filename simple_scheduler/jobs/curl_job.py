@@ -39,8 +39,8 @@ class CurlJob(job.JobBase):
 
     def run(self, url, request_type, *args, **kwargs):
         logger.info("CurlJob.run() called.")
-        logger.info(f"  Received argument1: {url} (type: {type(url)})")
-        logger.info(f"  Received argument2: {request_type} (type: {type(request_type)})")
+        logger.info(f"  Received url: {url}")
+        logger.info(f"  Received request_type: {request_type}")
         logger.info(f"  Received *args: {args} (type: {type(args)}, len: {len(args)})")
         logger.info(f"  Received **kwargs: {kwargs} (type: {type(kwargs)})")
         # logger.info("Calling %s on url: %s, data=%s" % (request_type, url, args))
