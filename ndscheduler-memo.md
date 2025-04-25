@@ -62,11 +62,15 @@
 8. fix setup.py
 9. uv pip install -e .
 
-## RUN
+## RUN(old)
 
 1. export NDSCHEDULER_SETTINGS_MODULE=simple_scheduler.settings
 2. export PYTHONPATH=.
 3. uv run simple_scheduler/scheduler.py
+
+## RUN
+
+1. uv run simple_scheduler/scheduler.py
 
 ## Memo (origin)
 
@@ -88,6 +92,10 @@
 9. 在執行 pip install -e . 時，Python 套件安裝系統可能使用的是安裝前已經緩存的元數據，或者是已經解析過的套件信息。所以需要"清除構建緩存"
     - uv pip install -e . --no-cache-dir --force-reinstall
 10. 使用 u02 API call。只能看到 u02 相關資料。使用 admin API call 可以看到全部。(04-25 chg user to admin)
+11. chrome browser 執行檔在 `C:\Users\chad\AppData\Local\ms-playwright\chromium-1161\chrome-win`
+    - install path `C:\Users\chad\AppData\Local\ms-playwright\chromium-1161`
+12. test_web_ui_integration.py test_03_add_job()=fail
+    - select Job Class
 
 ### cUrl
 
@@ -187,7 +195,11 @@ netstat -ano | findstr :8888
 uv pip install pytest pytest_asyncio
 pytest tests/test_main.py -v
 pytest tests/ndscheduler/corescheduler/datastore/test_base.py -v
-pytest ndscheduler/server/handlers/executions_test.py -v
+# pytest ndscheduler/server/handlers/executions_test.py -v
+pytest tests/test_api_integration.py -v
+pytest tests/test_api_integration.py::TestAPIIntegration::test_06_user_lifecycle -v
+pytest tests/test_web_ui_integration.py --headed -v
+pytest tests/test_web_ui_integration.py::TestWebUIIntegration::test_01_login --headed -v
 
 # temp
 pytest tests/corescheduler/datastore/providers/test_sqlite_async.py -v
