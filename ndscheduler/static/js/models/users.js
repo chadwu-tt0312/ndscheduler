@@ -59,7 +59,7 @@ define(['utils',
              * Parse server response
              */
             parse: function (response) {
-                console.log('User data response:', response);
+                // console.log('User data response:', response);
                 var users = response.users;
 
                 // If API server returns a single user, convert it to an array

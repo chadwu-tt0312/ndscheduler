@@ -13,7 +13,7 @@ define(['./auth'], function (auth) {
      * 在頁面載入時執行驗證邏輯
      */
     authVerification.initialize = function () {
-        console.log('初始化驗證模組');
+        // console.log('初始化驗證模組');
 
         // 檢查 cookie 中是否有 token
         var token = auth.getCookie('token');
@@ -26,7 +26,7 @@ define(['./auth'], function (auth) {
             // 驗證用戶身份
             verifyUserAuthentication();
         } else {
-            console.log('未找到 token，檢查是否在登入頁面');
+            // console.log('未找到 token，檢查是否在登入頁面');
             // 如果不在登入頁面，重定向到登入頁面
             if (window.location.pathname !== '/login') {
                 window.location.href = '/login';
@@ -70,7 +70,7 @@ define(['./auth'], function (auth) {
                     console.warn('驗證失敗：回應狀態碼', response.status);
                     handleAuthenticationFailure();
                 } else {
-                    console.log('驗證成功');
+                    // console.log('驗證成功');
                 }
             })
             .catch(function (error) {

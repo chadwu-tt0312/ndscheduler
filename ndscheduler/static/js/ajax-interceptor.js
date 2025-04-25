@@ -6,7 +6,7 @@
 define(['jquery', 'auth'], function ($, auth) {
     'use strict';
 
-    console.log('初始化 AJAX 攔截器');
+    // console.log('初始化 AJAX 攔截器');
 
     // 設置全局 AJAX 設置
     $.ajaxSetup({
@@ -129,7 +129,7 @@ define(['jquery', 'auth'], function ($, auth) {
         }
     });
 
-    console.log('AJAX 攔截器已初始化完成');
+    // console.log('AJAX 攔截器已初始化完成');
 
     // 返回攔截器對象
     return {

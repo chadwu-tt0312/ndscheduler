@@ -41,7 +41,7 @@ define([], function () {
     auth.parseJwt = function (token) {
         try {
             if (!token) {
-                console.log("No token found");
+                // console.log("No token found");
                 return null;
             }
 
@@ -93,7 +93,7 @@ define([], function () {
             // 如果不是 JWT 格式或解析失敗，嘗試直接解析
             try {
                 var payload = JSON.parse(decodedToken);
-                console.log("Parsed payload directly:", payload);
+                // console.log("Parsed payload directly:", payload);
                 return payload;
             } catch (e) {
                 console.error("Failed to parse token as JSON:", e);
@@ -124,7 +124,7 @@ define([], function () {
      * 驗證用戶身份並返回用戶信息
      */
     auth.verifyUser = function () {
-        console.log("開始驗證用戶身份");
+        // console.log("開始驗證用戶身份");
 
         // 先檢查 cookie
         var token = auth.getCookie("token");
@@ -137,11 +137,11 @@ define([], function () {
         };
 
         if (token) {
-            console.log("找到 token，正在解析");
+            // console.log("找到 token，正在解析");
             var user = auth.parseJwt(token);
 
             if (user) {
-                console.log("成功解析用戶信息:", user.username);
+                // console.log("成功解析用戶信息:", user.username);
                 result.isAdmin = user.is_admin === true;
                 result.username = user.username || "";
                 result.isLoggedIn = true;
@@ -149,17 +149,17 @@ define([], function () {
                 // 將 body 添加 admin-mode 類，啟用管理員 CSS
                 if (result.isAdmin) {
                     document.body.classList.add("admin-mode");
-                    console.log("已啟用管理員模式");
+                    // console.log("已啟用管理員模式");
                 }
             } else {
                 console.warn("Token 解析失敗");
             }
         } else {
-            console.log("未找到 token");
+            // console.log("未找到 token");
 
             // 在非登錄頁面時重定向到登錄頁面
             if (window.location.pathname !== "/login") {
-                console.log("非登錄頁面，重定向到登錄頁面");
+                // console.log("非登錄頁面，重定向到登錄頁面");
                 window.location.href = "/login";
             }
         }

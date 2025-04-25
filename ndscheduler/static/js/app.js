@@ -57,7 +57,8 @@ require([
   'ajax-interceptor',
   'fetch-interceptor',
   'auth',
-  'backbone'], function (
+  'backbone',
+  'moment'], function (
     JobsView,
     ExecutionsView,
     LogsView,
@@ -69,22 +70,24 @@ require([
     pageManager,
     ajaxInterceptor,
     fetchInterceptor,
-    auth) {
+    auth,
+    Backbone,
+    moment) {
   'use strict';
 
   // 確保頁面加載完成後才初始化
   $(document).ready(function () {
-    console.log("DOM ready, initializing application...");
+    // console.log("DOM ready, initializing application...");
 
     // 主動檢查用戶是否登入
     if (window.location.pathname !== '/login') {
-      console.log("檢查用戶身份驗證狀態...");
+      // console.log("檢查用戶身份驗證狀態...");
 
       // 從 cookie 中獲取 token
       var token = auth.getCookie('token');
 
       if (!token) {
-        console.log("未找到 token，重定向到登錄頁面");
+        // console.log("未找到 token，重定向到登錄頁面");
         window.location.href = '/login';
         return;
       }
@@ -94,20 +97,20 @@ require([
         url: '/api/v1/auth/verify',
         method: 'GET',
         success: function (response) {
-          console.log("身份驗證成功，繼續加載應用");
+          // console.log("身份驗證成功，繼續加載應用");
           initializeApp();
         },
         error: function (xhr, status, error) {
           console.error("身份驗證失敗:", status, error);
           if (xhr.status === 401) {
-            console.log("Token 無效，重定向到登錄頁面");
+            // console.log("Token 無效，重定向到登錄頁面");
             auth.deleteCookie('token');
             window.location.href = '/login';
           }
         }
       });
     } else {
-      console.log("當前在登錄頁面，跳過身份驗證檢查");
+      // console.log("當前在登錄頁面，跳過身份驗證檢查");
     }
   });
 
@@ -117,7 +120,7 @@ require([
     if (typeof $.fn.bootstrapSwitch === 'undefined') {
       console.error('bootstrap-switch not loaded properly');
     } else {
-      console.log('bootstrap-switch loaded successfully');
+      // console.log('bootstrap-switch loaded successfully');
     }
 
     var jobsCollection = new JobsCollection();
@@ -186,13 +189,21 @@ require([
       if (executionId) {
         executionsCollection.getExecution(executionId);
       } else {
-        executionsCollection.getExecutions();
+        // 使用目前選擇的時間範圍
+        var range = parseInt($('#filter-time-range').val(), 10);
+        var end = moment();
+        var start = moment().subtract(range, 'second');
+        executionsCollection.getExecutionsByRange(start.toISOString(), end.toISOString());
       }
     });
 
     appRouter.on('route:logsRoute', function () {
       switchTab('logs');
-      logsCollection.getLogs();
+      // 使用目前選擇的時間範圍
+      var range = parseInt($('#logs-filter-time-range').val(), 10);
+      var end = moment();
+      var start = moment().subtract(range, 'second');
+      logsCollection.getLogsByRange(start.toISOString(), end.toISOString());
     });
 
     appRouter.on('route:usersRoute', function () {

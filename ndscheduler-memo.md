@@ -87,6 +87,7 @@
 8. htpasswd -nbB username password
 9. 在執行 pip install -e . 時，Python 套件安裝系統可能使用的是安裝前已經緩存的元數據，或者是已經解析過的套件信息。所以需要"清除構建緩存"
     - uv pip install -e . --no-cache-dir --force-reinstall
+10. 使用 u02 API call。只能看到 u02 相關資料。使用 admin API call 可以看到全部。(04-25 chg user to admin)
 
 ### cUrl
 
@@ -94,7 +95,7 @@
 curl -X POST http://localhost:8888/api/v1/auth/login 
   -H 'Content-Type: application/json' 
   -d '{
-    "username": "user",
+    "username": "admin",
     "password": "password"
   }'
 
@@ -193,3 +194,8 @@ pytest tests/corescheduler/datastore/providers/test_sqlite_async.py -v
 pytest tests/integration/test_server.py -v
 pytest tests/integration/test_server.py -vv -s
 ```
+
+### Issue
+
+1. settting 中的 DEBUG = False 時需要將所有前端的 console.log() 紀錄關閉，DEBUG = True 時才開啟 console.log() 紀錄。因此需要將 setting 的 DEBUG flag 傳遞給前端。
+    - 兩次修改都失敗

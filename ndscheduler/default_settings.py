@@ -107,7 +107,7 @@ JOB_CLASS_EXCLUDE_PACKAGES = ["apns_job"]
 # To enable user authentication, modify the dict below
 # e.g. AUTH_CREDENTIALS = {'username': 'password'}
 # The pasword must be hashed using bcrypt (e.g. htpasswd -nbB userName userPassword)
-AUTH_CREDENTIALS = {"user": "$2b$12$kdS48PJ4lN0AUkAPlKrSsepvmtZLhnAzbJhFTJPBIv71.Q8EvMFpi"}
+AUTH_CREDENTIALS = {"admin": "$2b$12$kdS48PJ4lN0AUkAPlKrSsepvmtZLhnAzbJhFTJPBIv71.Q8EvMFpi"}
 
 #
 # Logging settings

@@ -89,6 +89,7 @@ define(['utils',
        * @return {Array} an array of objects of JobModel.
        */
       parse: function (response) {
+        // console.log('Job data response:', response);
         var jobs = response.jobs;
 
         // If api server returns a single job, then make an array here.

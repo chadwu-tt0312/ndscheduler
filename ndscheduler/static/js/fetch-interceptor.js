@@ -6,7 +6,7 @@
 define(['auth'], function (auth) {
     'use strict';
 
-    console.log('初始化 Fetch 攔截器');
+    // console.log('初始化 Fetch 攔截器');
 
     // 保存原始的 fetch 函數
     var originalFetch = window.fetch;
@@ -106,7 +106,7 @@ define(['auth'], function (auth) {
             });
     };
 
-    console.log('Fetch 攔截器已初始化完成');
+    // console.log('Fetch 攔截器已初始化完成');
 
     // 返回攔截器對象
     return {

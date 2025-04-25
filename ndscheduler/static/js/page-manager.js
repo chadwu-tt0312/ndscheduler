@@ -21,8 +21,8 @@ define(['jquery', 'auth', 'bootstrap'], function ($, auth) {
             return;
         }
 
-        console.log('Initializing page manager');
-        console.log('User admin status:', window.isAdmin);
+        // console.log('Initializing page manager');
+        // console.log('User admin status:', window.isAdmin);
 
         // 更新網站標題
         pageManager.updateWebsiteTitle();
@@ -42,7 +42,7 @@ define(['jquery', 'auth', 'bootstrap'], function ($, auth) {
         // 初始頁面載入時顯示相應內容
         pageManager.handleHashChange();
 
-        console.log('Page manager initialized successfully');
+        // console.log('Page manager initialized successfully');
     };
 
     /**
@@ -80,9 +80,9 @@ define(['jquery', 'auth', 'bootstrap'], function ($, auth) {
                 }
             });
 
-            console.log("管理員選項已設置");
+            // console.log("管理員選項已設置");
         } else {
-            console.log("非管理員用戶，不顯示管理員選項");
+            // console.log("非管理員用戶，不顯示管理員選項");
         }
     };
 

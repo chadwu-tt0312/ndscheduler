@@ -59,7 +59,7 @@ define(['utils',
              * Parse server response
              */
             parse: function (response) {
-                console.log('Category data response:', response);
+                // console.log('Category data response:', response);
                 var categories = response.categories;
 
                 // If API server returns a single category, convert it to an array
