@@ -42,13 +42,13 @@ class Handler(base.BaseHandler):
             metadata,
             self.datastore.table_names.get("categories_tablename", "scheduler_categories"),
         )
-        
+
         # 檢查表是否存在
         engine = session.get_bind()
         if not engine.dialect.has_table(engine.connect(), categories_table.name):
             self.set_status(400)
             return session, categories_table, engine, True
-        
+
         return session, categories_table, engine, False
 
     def _format_category(self, category):
@@ -82,23 +82,20 @@ class Handler(base.BaseHandler):
         session, categories_table, engine, error = self._get_categories_table()
         if error:
             return {"error": "Categories table does not exist"}
-        
+
         # 使用 text 查詢特定分類
-        result = session.execute(
-            text(f"SELECT * FROM {categories_table.name} WHERE id = :id"),
-            {"id": category_id}
-        )
+        result = session.execute(text(f"SELECT * FROM {categories_table.name} WHERE id = :id"), {"id": category_id})
         category = result.fetchone()
-        
+
         if not category:
             self.set_status(404)
             return {"error": "Category not found"}
-        
+
         columns = result.keys()
         category_dict = dict(zip(columns, category))
-        
+
         logger.info(f"Found category with id {category_id}")
-        
+
         return self._format_category(category_dict)
 
     @tornado.concurrent.run_on_executor
@@ -137,17 +134,15 @@ class Handler(base.BaseHandler):
         session, categories_table, engine, error = self._get_categories_table()
         if error:
             return {"error": "Categories table does not exist"}
-        
+
         # 使用 text 查詢所有分類
         result = session.execute(text(f"SELECT * FROM {categories_table.name}"))
         columns = result.keys()
         categories = [dict(zip(columns, row)) for row in result.fetchall()]
-        
+
         logger.info(f"Found {len(categories)} categories")
-        
-        return {
-            "categories": [self._format_category(category) for category in categories]
-        }
+
+        return {"categories": [self._format_category(category) for category in categories]}
 
     @tornado.concurrent.run_on_executor
     def get_categories(self):
@@ -196,49 +191,56 @@ class Handler(base.BaseHandler):
         if not is_admin:
             self.set_status(403)
             return {"error": "Permission denied"}
-            
-        data = json.loads(self.request.body.decode())
-        name = data.get("name")
-        description = data.get("description")
 
-        if not name:
+        try:
+            data = json.loads(self.request.body.decode())
+            name = data.get("name")
+            description = data.get("description")
+
+            if not name:
+                self.set_status(400)
+                return {"error": "Name is required"}
+
+            session, categories_table, engine, error = self._get_categories_table()
+            if error:
+                return {"error": "Categories table does not exist"}
+
+            # 檢查名稱是否已存在
+            result = session.execute(
+                text(f"SELECT COUNT(*) FROM {categories_table.name} WHERE name = :name"), {"name": name}
+            )
+            if result.scalar() > 0:
+                self.set_status(400)
+                return {"error": "Category name already exists"}
+
+            # 新增分類
+            result = session.execute(
+                text(
+                    f"""
+                    INSERT INTO {categories_table.name} 
+                    (name, description, created_at, updated_at) 
+                    VALUES (:name, :description, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    RETURNING id
+                """
+                ),
+                {"name": name, "description": description},
+            )
+
+            # 獲取插入的 ID
+            inserted_id = result.scalar()
+
+            session.commit()
+            logger.info(f"Created new category: {name}")
+
+            return {"id": inserted_id}
+        except json.JSONDecodeError as e:
+            logger.error("無效的 JSON 格式")
             self.set_status(400)
-            return {"error": "Name is required"}
-
-        session, categories_table, engine, error = self._get_categories_table()
-        if error:
-            return {"error": "Categories table does not exist"}
-
-        # 檢查名稱是否已存在
-        result = session.execute(
-            text(f"SELECT COUNT(*) FROM {categories_table.name} WHERE name = :name"),
-            {"name": name}
-        )
-        if result.scalar() > 0:
-            self.set_status(400)
-            return {"error": "Category name already exists"}
-
-        # 新增分類
-        result = session.execute(
-            text(f"""
-                INSERT INTO {categories_table.name} 
-                (name, description, created_at, updated_at) 
-                VALUES (:name, :description, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-                RETURNING id
-            """),
-            {
-                "name": name,
-                "description": description
-            }
-        )
-        
-        # 獲取插入的 ID
-        inserted_id = result.scalar()
-        
-        session.commit()
-        logger.info(f"Created new category: {name}")
-
-        return {"id": inserted_id}
+            return {"error": f"Invalid JSON format: {str(e)}"}
+        except Exception as e:
+            logger.exception(f"新增分類失敗: {e}")
+            self.set_status(500)
+            return {"error": f"Failed to add category: {str(e)}"}
 
     @tornado.concurrent.run_on_executor
     def add_category(self):
@@ -287,55 +289,61 @@ class Handler(base.BaseHandler):
         if not is_admin:
             self.set_status(403)
             return {"error": "Permission denied"}
-            
-        data = json.loads(self.request.body.decode())
-        name = data.get("name")
-        description = data.get("description")
 
-        if not name:
+        try:
+            data = json.loads(self.request.body.decode())
+            name = data.get("name")
+            description = data.get("description")
+
+            if not name:
+                self.set_status(400)
+                return {"error": "Name is required"}
+
+            session, categories_table, engine, error = self._get_categories_table()
+            if error:
+                return {"error": "Categories table does not exist"}
+
+            # 檢查分類是否存在
+            result = session.execute(
+                text(f"SELECT id FROM {categories_table.name} WHERE id = :id"), {"id": category_id}
+            )
+            if not result.fetchone():
+                self.set_status(404)
+                return {"error": "Category not found"}
+
+            # 檢查名稱是否已被其他分類使用
+            result = session.execute(
+                text(f"SELECT id FROM {categories_table.name} WHERE name = :name AND id != :id"),
+                {"name": name, "id": category_id},
+            )
+            if result.fetchone():
+                self.set_status(400)
+                return {"error": "Category name already exists"}
+
+            # 更新分類
+            session.execute(
+                text(
+                    f"""
+                    UPDATE {categories_table.name} 
+                    SET name = :name, description = :description, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = :id
+                """
+                ),
+                {"name": name, "description": description, "id": category_id},
+            )
+
+            session.commit()
+            logger.info(f"Updated category with id {category_id}")
+
+            return {"id": category_id}
+        except json.JSONDecodeError as e:
+            logger.error("無效的 JSON 格式")
             self.set_status(400)
-            return {"error": "Name is required"}
-
-        session, categories_table, engine, error = self._get_categories_table()
-        if error:
-            return {"error": "Categories table does not exist"}
-
-        # 檢查分類是否存在
-        result = session.execute(
-            text(f"SELECT id FROM {categories_table.name} WHERE id = :id"),
-            {"id": category_id}
-        )
-        if not result.fetchone():
-            self.set_status(404)
-            return {"error": "Category not found"}
-
-        # 檢查名稱是否已被其他分類使用
-        result = session.execute(
-            text(f"SELECT id FROM {categories_table.name} WHERE name = :name AND id != :id"),
-            {"name": name, "id": category_id}
-        )
-        if result.fetchone():
-            self.set_status(400)
-            return {"error": "Category name already exists"}
-
-        # 更新分類
-        session.execute(
-            text(f"""
-                UPDATE {categories_table.name} 
-                SET name = :name, description = :description, updated_at = CURRENT_TIMESTAMP
-                WHERE id = :id
-            """),
-            {
-                "name": name,
-                "description": description,
-                "id": category_id
-            }
-        )
-        
-        session.commit()
-        logger.info(f"Updated category with id {category_id}")
-
-        return {"id": category_id}
+            return {"error": f"Invalid JSON format: {str(e)}"}
+        except Exception as e:
+            logger.exception(f"修改分類失敗: {e}")
+            self.set_status(500)
+            return {"error": f"Failed to modify category: {str(e)}"}
 
     @tornado.concurrent.run_on_executor
     def modify_category(self, category_id):
@@ -395,20 +403,14 @@ class Handler(base.BaseHandler):
             return {"error": "Categories table does not exist"}
 
         # 檢查分類是否存在
-        result = session.execute(
-            text(f"SELECT id FROM {categories_table.name} WHERE id = :id"),
-            {"id": category_id}
-        )
+        result = session.execute(text(f"SELECT id FROM {categories_table.name} WHERE id = :id"), {"id": category_id})
         if not result.fetchone():
             self.set_status(404)
             return {"error": "Category not found"}
 
         # 刪除分類
-        session.execute(
-            text(f"DELETE FROM {categories_table.name} WHERE id = :id"),
-            {"id": category_id}
-        )
-        
+        session.execute(text(f"DELETE FROM {categories_table.name} WHERE id = :id"), {"id": category_id})
+
         session.commit()
         logger.info(f"Deleted category with id {category_id}")
 
@@ -450,4 +452,4 @@ class Handler(base.BaseHandler):
         Args:
             category_id (str): 分類 ID
         """
-        yield self.delete_category_yield(category_id) 
+        yield self.delete_category_yield(category_id)

@@ -20,6 +20,27 @@ define(['jquery', 'auth'], function ($, auth) {
                 // 跳轉到登錄頁面
                 window.location.href = '/login';
                 return false; // 阻止後續處理
+            },
+            500: function () {
+                console.log('收到 500 伺服器錯誤，可能是資料庫連接問題，嘗試驗證身份...');
+
+                // 嘗試進行一次身份驗證檢查
+                $.ajax({
+                    url: '/api/v1/auth/verify',
+                    method: 'GET',
+                    success: function (response) {
+                        console.log('驗證成功，原始 500 錯誤可能與身份驗證無關');
+                    },
+                    error: function (xhr) {
+                        if (xhr.status === 401) {
+                            console.log('驗證失敗，重定向到登錄頁面');
+                            // 清除 token
+                            auth.deleteCookie('token');
+                            // 跳轉到登錄頁面
+                            window.location.href = '/login';
+                        }
+                    }
+                });
             }
         },
         // 全局錯誤處理
@@ -36,6 +57,27 @@ define(['jquery', 'auth'], function ($, auth) {
                 // 跳轉到登錄頁面
                 window.location.href = '/login';
                 return false; // 阻止後續處理
+            }
+
+            // 如果是 500 錯誤，檢查是否為資料庫連接問題
+            if (xhr.status === 500 && xhr.responseText && xhr.responseText.includes("TimeoutError")) {
+                console.log('伺服器資料庫連接問題，可能需要重新登入');
+
+                // 嘗試驗證身份
+                $.ajax({
+                    url: '/api/v1/auth/verify',
+                    method: 'GET',
+                    success: function (response) {
+                        console.log('身份驗證成功，不需要重新登入');
+                    },
+                    error: function (xhr) {
+                        if (xhr.status === 401) {
+                            console.log('身份驗證失敗，重定向到登錄頁面');
+                            auth.deleteCookie('token');
+                            window.location.href = '/login';
+                        }
+                    }
+                });
             }
         }
     });
@@ -54,6 +96,36 @@ define(['jquery', 'auth'], function ($, auth) {
             // 跳轉到登錄頁面
             window.location.href = '/login';
             return false; // 阻止後續處理
+        }
+
+        // 檢查 500 錯誤
+        if (jqXHR.status === 500) {
+            console.log('全局 AJAX 錯誤事件捕獲 500 錯誤');
+
+            // 檢查回應文本是否包含資料庫連接錯誤關鍵字
+            if (jqXHR.responseText &&
+                (jqXHR.responseText.includes("TimeoutError") ||
+                    jqXHR.responseText.includes("connection") ||
+                    jqXHR.responseText.includes("database"))) {
+                console.log('檢測到資料庫連接錯誤，可能需要重新登入');
+
+                // 嘗試驗證身份
+                $.ajax({
+                    url: '/api/v1/auth/verify',
+                    method: 'GET',
+                    success: function (response) {
+                        console.log('身份驗證成功，不需要重新登入');
+                    },
+                    error: function (xhr) {
+                        console.log('驗證請求結果：', xhr.status);
+                        if (xhr.status === 401) {
+                            console.log('身份驗證失敗，重定向到登錄頁面');
+                            auth.deleteCookie('token');
+                            window.location.href = '/login';
+                        }
+                    }
+                });
+            }
         }
     });
 

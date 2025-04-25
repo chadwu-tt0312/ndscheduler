@@ -502,6 +502,55 @@ class DatastoreBase(sched_sqlalchemy.SQLAlchemyJobStore):
                 }
             return None
 
+    def check_user_exists(self, username, session=None):
+        """檢查使用者是否存在。
+
+        這是一個更輕量的方法，只檢查使用者是否存在，不返回完整的使用者資料。
+        如果提供了 session 參數，將使用該 session 而不是建立新的 session。
+
+        Args:
+            username (str): 使用者名稱
+            session (Session, optional): SQLAlchemy Session 物件. Defaults to None.
+
+        Returns:
+            bool: 使用者是否存在
+        """
+        # 使用傳入的 session 或建立新的 session
+        if session:
+            # 使用傳入的 session
+            stmt = select(self.users_table.c.id).where(self.users_table.c.username == username)
+            result = session.execute(stmt)
+            return result.first() is not None
+        else:
+            # 建立新的 session
+            with Session(self.engine) as session:
+                stmt = select(self.users_table.c.id).where(self.users_table.c.username == username)
+                result = session.execute(stmt)
+                return result.first() is not None
+
+    def get_users(self):
+        """取得所有使用者，依使用者名稱排序。
+
+        Returns:
+            list: 以使用者名稱排序的使用者列表
+        """
+        with Session(self.engine) as session:
+            # 使用排序子句來按使用者名稱排序
+            stmt = select(self.users_table).order_by(self.users_table.c.username)
+            result = session.execute(stmt)
+            return [
+                {
+                    "id": row.id,
+                    "username": row.username,
+                    "category_id": row.category_id,
+                    "is_admin": row.is_admin,
+                    "is_permission": row.is_permission,
+                    "created_at": self.get_time_isoformat_from_db(row.created_at),
+                    "updated_at": self.get_time_isoformat_from_db(row.updated_at),
+                }
+                for row in result
+            ]
+
     def verify_user(self, username, password):
         """驗證使用者密碼。
 
@@ -556,13 +605,14 @@ class DatastoreBase(sched_sqlalchemy.SQLAlchemyJobStore):
             return None
 
     def get_categories(self):
-        """取得所有分類。
+        """取得所有分類，依名稱排序。
 
         Returns:
-            list: 分類列表
+            list: 以分類名稱排序的分類列表
         """
         with Session(self.engine) as session:
-            stmt = select(self.categories_table)
+            # 使用排序子句來按名稱排序
+            stmt = select(self.categories_table).order_by(self.categories_table.c.name)
             result = session.execute(stmt)
             return [
                 {
@@ -721,7 +771,7 @@ class DatastoreBase(sched_sqlalchemy.SQLAlchemyJobStore):
             category_id (int | None): 要過濾的分類 ID。若為 None 或 0，則回傳所有 Job。
 
         Returns:
-            list[Job]: Job 物件列表。
+            list[Job]: 以任務名稱排序的 Job 物件列表。
         """
         all_jobs = super().get_all_jobs()  # 從父類獲取原始 Job 列表
 
@@ -739,13 +789,14 @@ class DatastoreBase(sched_sqlalchemy.SQLAlchemyJobStore):
 
                 # 過濾 Job 列表
                 filtered_jobs = [job for job in all_jobs if job.id in target_job_ids]
-                return filtered_jobs
+                # 根據任務名稱排序
+                return sorted(filtered_jobs, key=lambda job: job.name.lower())
             except Exception as e:
                 logger.error(f"根據 category_id {category_id} 過濾 Job 時發生錯誤: {e}")
                 return []  # 出錯時回傳空列表
         else:
-            # 不需要過濾，回傳所有 Job
-            return all_jobs
+            # 不需要過濾，回傳所有 Job，但根據名稱排序
+            return sorted(all_jobs, key=lambda job: job.name.lower())
 
     def lookup_job(self, job_id) -> Job | None:
         """覆寫 SQLAlchemyJobStore.lookup_job 方法。

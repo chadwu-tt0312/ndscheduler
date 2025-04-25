@@ -6,11 +6,15 @@
 import json
 from concurrent import futures
 import re
+import logging
 
 import tornado.web
 from jwt import decode, ExpiredSignatureError, InvalidTokenError
 
 from ndscheduler import settings
+
+
+logger = logging.getLogger(__name__)
 
 
 class BaseHandler(tornado.web.RequestHandler):
@@ -37,30 +41,43 @@ class BaseHandler(tornado.web.RequestHandler):
         if self._is_path_whitelisted(self.request.path):
             return
 
-        # 檢查用戶是否已登入
-        user = self.get_current_user()
-        if not user:
-            # 判斷是 API 請求還是網頁請求
+        try:
+            # 檢查用戶是否已登入，避免因為資料庫連接問題而導致整個請求失敗
+            user = self.get_current_user()
+            if not user:
+                # 判斷是 API 請求還是網頁請求
+                if self.request.headers.get("Accept") == "application/json" or self.request.path.startswith("/api/"):
+                    # API 請求返回 401 狀態碼
+                    self.set_status(401)
+                    self.write({"error": {"code": 401, "message": "Unauthorized"}})
+                    self.finish()
+                else:
+                    # 網頁請求直接重定向到登入頁面
+                    self.redirect("/login")
+                return
+
+            # 嘗試解析 JSON 請求內容
+            try:
+                if self.request.headers.get("Content-Type", "").startswith("application/json"):
+                    self.json_args = json.loads(self.request.body.decode())
+            except (KeyError, json.JSONDecodeError):
+                self.json_args = None
+
+            # 用於稽核日誌
+            self.username = self.get_username()
+            self.scheduler_manager = self.application.settings["scheduler_manager"]
+            self.datastore = self.scheduler_manager.get_datastore()
+
+        except Exception as e:
+            logger.error(f"處理請求時發生錯誤: {str(e)}", exc_info=True)
+            # 出現錯誤時，將用戶重定向到登入頁面
             if self.request.headers.get("Accept") == "application/json" or self.request.path.startswith("/api/"):
-                # API 請求返回 401 狀態碼
                 self.set_status(401)
-                self.write({"error": {"code": 401, "message": "Unauthorized"}})
+                self.write({"error": {"code": 401, "message": "Authentication error"}})
                 self.finish()
             else:
-                # 網頁請求直接重定向到登入頁面
                 self.redirect("/login")
             return
-
-        try:
-            if self.request.headers.get("Content-Type", "").startswith("application/json"):
-                self.json_args = json.loads(self.request.body.decode())
-        except (KeyError, json.JSONDecodeError):
-            self.json_args = None
-
-        # 用於稽核日誌
-        self.username = self.get_username()
-        self.scheduler_manager = self.application.settings["scheduler_manager"]
-        self.datastore = self.scheduler_manager.get_datastore()
 
     def get_username(self) -> str:
         """取得登入使用者名稱。
@@ -98,29 +115,49 @@ class BaseHandler(tornado.web.RequestHandler):
             return None
 
         try:
+            # 解析 JWT token
             payload = decode(token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGORITHM])
 
             # 驗證用戶是否存在於資料庫中
             username = payload.get("username")
             if username:
-                # 確保 scheduler_manager 和 datastore 已初始化
-                if not hasattr(self, "scheduler_manager"):
-                    self.scheduler_manager = self.application.settings["scheduler_manager"]
-                if not hasattr(self, "datastore"):
-                    self.datastore = self.scheduler_manager.get_datastore()
+                # 只在 JWT 有效且需要進一步驗證用戶時才連接資料庫
+                try:
+                    # 確保 scheduler_manager 和 datastore 已初始化
+                    if not hasattr(self, "scheduler_manager"):
+                        self.scheduler_manager = self.application.settings["scheduler_manager"]
+                    if not hasattr(self, "datastore"):
+                        self.datastore = self.scheduler_manager.get_datastore()
 
-                # 從資料庫取得用戶資訊
-                user_from_db = self.datastore.get_user(username)
+                    # 使用 with 語句來確保資料庫會話在使用後被正確關閉
+                    session = None
+                    try:
+                        session = self.get_session()
+                        user_exists = self.datastore.check_user_exists(username, session)
 
-                # 如果用戶不存在於資料庫中，返回 None
-                if not user_from_db:
-                    print(f"Token 中的用戶 {username} 不存在於資料庫中")
-                    return None
+                        # 如果用戶不存在，返回 None
+                        if not user_exists:
+                            logger.warning(f"Token 中的用戶 {username} 不存在於資料庫中")
+                            return None
+                    finally:
+                        # 確保資料庫會話被正確關閉
+                        if session and hasattr(session, "close"):
+                            session.close()
+                except Exception as e:
+                    logger.error(f"驗證用戶時發生錯誤: {str(e)}", exc_info=True)
+                    # 資料庫錯誤時，暫時接受 JWT 驗證結果
+                    logger.warning(f"因資料庫錯誤，暫時信任 JWT token: {username}")
+                    # 仍然返回 payload，但記錄警告
 
             return payload
         except ExpiredSignatureError:
+            logger.warning("Token 已過期")
             return None
         except InvalidTokenError:
+            logger.warning("無效的 Token")
+            return None
+        except Exception as e:
+            logger.error(f"解析 Token 時發生錯誤: {str(e)}", exc_info=True)
             return None
 
     def write_error(self, status_code: int, **kwargs) -> None:
@@ -152,8 +189,5 @@ class BaseHandler(tornado.web.RequestHandler):
             else:
                 raise AttributeError("無法獲取資料庫連接，datastore 缺少必要的屬性")
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
             logger.error(f"獲取資料庫連接時發生錯誤: {str(e)}", exc_info=True)
             raise

@@ -145,20 +145,20 @@ class Handler(base.BaseHandler):
         這是一個阻塞操作。
 
         Returns:
-            dict: 所有用戶信息
+            dict: 所有用戶信息，按用戶名排序
         """
         session, users_table, engine, error = self._get_users_table()
         if error:
             return {"error": "Users table does not exist"}
 
-        # 使用 text 查詢所有用戶
-        result = session.execute(text(f"SELECT * FROM {users_table.name}"))
-        columns = result.keys()
-        users = [dict(zip(columns, row)) for row in result.fetchall()]
-
-        logger.info(f"Found {len(users)} users")
-
-        return {"users": [self._format_user(user) for user in users]}
+        try:
+            # 使用 datastore 的 get_users 方法，該方法會按用戶名排序
+            users = self.datastore.get_users()
+            # logger.info(f"Found {len(users)} users")
+            return {"users": users}
+        except Exception as e:
+            logger.error(f"獲取用戶列表時發生錯誤: {e}", exc_info=True)
+            return {"error": f"Failed to get users: {str(e)}"}
 
     @tornado.concurrent.run_on_executor
     def get_users(self):
@@ -257,10 +257,10 @@ class Handler(base.BaseHandler):
             # 捕獲來自 datastore.add_user 的 category_id 驗證錯誤
             self.set_status(400)
             return {"error": str(e)}
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             logger.error("無效的 JSON 格式")
             self.set_status(400)
-            return {"error": "Invalid request format"}
+            return {"error": f"Invalid JSON format: {str(e)}"}
         except Exception as e:
             logger.exception("新增用戶失敗")
             self.set_status(500)
@@ -320,83 +320,92 @@ class Handler(base.BaseHandler):
         Returns:
             dict: 包含用戶 ID 的字典
         """
-        data = json.loads(self.request.body.decode())
-        username = data.get("username")
-        password = data.get("password")
-        category_id = data.get("category_id")
-        is_admin = data.get("is_admin")
-        is_permission = data.get("is_permission")
+        try:
+            data = json.loads(self.request.body.decode())
+            username = data.get("username")
+            password = data.get("password")
+            category_id = data.get("category_id")
+            is_admin = data.get("is_admin")
+            is_permission = data.get("is_permission")
 
-        if not any([username, password, category_id, is_admin is not None, is_permission is not None]):
-            self.set_status(400)
-            return {"error": "At least one field must be provided"}
-
-        session, users_table, engine, error = self._get_users_table()
-        if error:
-            return {"error": "Users table does not exist"}
-
-        # 檢查用戶是否存在
-        result = session.execute(
-            text(f"SELECT COUNT(*) FROM {users_table.name} WHERE id = :user_id"), {"user_id": user_id}
-        )
-        if result.scalar() == 0:
-            self.set_status(400)
-            return {"error": f"User not found: {user_id}"}
-
-        # 檢查用戶名是否與其他用戶衝突
-        if username:
-            result = session.execute(
-                text(f"SELECT COUNT(*) FROM {users_table.name} WHERE username = :username AND id != :user_id"),
-                {"username": username, "user_id": user_id},
-            )
-            if result.scalar() > 0:
+            if not any([username, password, category_id, is_admin is not None, is_permission is not None]):
                 self.set_status(400)
-                return {"error": "Username already exists"}
+                return {"error": "At least one field must be provided"}
 
-        # 構建更新值
-        update_fields = []
-        params = {"user_id": user_id}
+            session, users_table, engine, error = self._get_users_table()
+            if error:
+                return {"error": "Users table does not exist"}
 
-        if username:
-            update_fields.append("username = :username")
-            params["username"] = username
+            # 檢查用戶是否存在
+            result = session.execute(
+                text(f"SELECT COUNT(*) FROM {users_table.name} WHERE id = :user_id"), {"user_id": user_id}
+            )
+            if result.scalar() == 0:
+                self.set_status(400)
+                return {"error": f"User not found: {user_id}"}
 
-        if password:
-            hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
-            update_fields.append("password = :password")
-            params["password"] = hashed_password
+            # 檢查用戶名是否與其他用戶衝突
+            if username:
+                result = session.execute(
+                    text(f"SELECT COUNT(*) FROM {users_table.name} WHERE username = :username AND id != :user_id"),
+                    {"username": username, "user_id": user_id},
+                )
+                if result.scalar() > 0:
+                    self.set_status(400)
+                    return {"error": "Username already exists"}
 
-        if category_id is not None:
-            update_fields.append("category_id = :category_id")
-            params["category_id"] = category_id
+            # 構建更新值
+            update_fields = []
+            params = {"user_id": user_id}
 
-        if is_admin is not None:
-            update_fields.append("is_admin = :is_admin")
-            params["is_admin"] = is_admin
+            if username:
+                update_fields.append("username = :username")
+                params["username"] = username
 
-        if is_permission is not None:
-            update_fields.append("is_permission = :is_permission")
-            params["is_permission"] = is_permission
+            if password:
+                hashed_password = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+                update_fields.append("password = :password")
+                params["password"] = hashed_password
 
-        # 添加更新時間
-        update_fields.append("updated_at = CURRENT_TIMESTAMP")
+            if category_id is not None:
+                update_fields.append("category_id = :category_id")
+                params["category_id"] = category_id
 
-        # 執行更新
-        session.execute(
-            text(
-                f"""
-                UPDATE {users_table.name} 
-                SET {", ".join(update_fields)}
-                WHERE id = :user_id
-            """
-            ),
-            params,
-        )
+            if is_admin is not None:
+                update_fields.append("is_admin = :is_admin")
+                params["is_admin"] = is_admin
 
-        session.commit()
-        logger.info(f"Updated user {user_id}")
+            if is_permission is not None:
+                update_fields.append("is_permission = :is_permission")
+                params["is_permission"] = is_permission
 
-        return {"id": user_id}
+            # 添加更新時間
+            update_fields.append("updated_at = CURRENT_TIMESTAMP")
+
+            # 執行更新
+            session.execute(
+                text(
+                    f"""
+                    UPDATE {users_table.name} 
+                    SET {", ".join(update_fields)}
+                    WHERE id = :user_id
+                """
+                ),
+                params,
+            )
+
+            session.commit()
+            logger.info(f"Updated user {user_id}")
+
+            return {"id": user_id}
+        except json.JSONDecodeError as e:
+            logger.error("無效的 JSON 格式")
+            self.set_status(400)
+            return {"error": f"Invalid JSON format: {str(e)}"}
+        except Exception as e:
+            logger.exception(f"修改用戶失敗: {e}")
+            self.set_status(500)
+            return {"error": f"Failed to modify user: {str(e)}"}
 
     @tornado.concurrent.run_on_executor
     def modify_user(self, user_id):

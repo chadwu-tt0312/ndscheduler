@@ -99,10 +99,10 @@ class LoginHandler(tornado.web.RequestHandler):
 
             self.write(response_data)
 
-        except json.JSONDecodeError:
+        except json.JSONDecodeError as e:
             logger.error("無效的 JSON 格式")
             self.set_status(400)
-            self.write({"error": "無效的請求格式"})
+            self.write({"error": f"Invalid JSON format: {str(e)}"})
         except Exception as e:
             logger.exception("登入失敗")
             self.set_status(500)

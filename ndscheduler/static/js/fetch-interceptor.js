@@ -25,6 +25,7 @@ define(['auth'], function (auth) {
                 // 檢查回應狀態
                 console.log('收到 fetch 回應，狀態碼:', response.status);
 
+                // 處理 401 錯誤
                 if (response.status === 401) {
                     console.log('Fetch 請求收到 401 未授權回應，正在跳轉到登錄頁面...');
 
@@ -36,6 +37,43 @@ define(['auth'], function (auth) {
 
                     // 拋出錯誤以中斷後續處理
                     throw new Error('未授權，已重定向到登錄頁面');
+                }
+
+                // 處理 500 錯誤，可能是資料庫連接問題
+                if (response.status === 500) {
+                    console.log('收到 500 伺服器錯誤，檢查是否為資料庫連接問題');
+
+                    // 克隆回應以便我們可以閱讀內容兩次
+                    return response.clone().text().then(function (text) {
+                        // 檢查是否包含資料庫連接錯誤關鍵字
+                        if (text.includes('TimeoutError') ||
+                            text.includes('connection') ||
+                            text.includes('database')) {
+                            console.log('檢測到資料庫連接錯誤，嘗試驗證身份');
+
+                            // 嘗試驗證身份
+                            return fetch('/api/v1/auth/verify', { method: 'GET' })
+                                .then(function (verifyResponse) {
+                                    if (verifyResponse.status === 401) {
+                                        console.log('身份驗證失敗，重定向到登錄頁面');
+                                        auth.deleteCookie('token');
+                                        window.location.href = '/login';
+                                        throw new Error('未授權，已重定向到登錄頁面');
+                                    } else {
+                                        // 驗證成功，返回原始回應
+                                        return response;
+                                    }
+                                })
+                                .catch(function (error) {
+                                    // 驗證請求失敗，可能是網絡問題
+                                    console.log('驗證請求失敗:', error);
+                                    return response;
+                                });
+                        } else {
+                            // 不是資料庫連接問題，返回原始回應
+                            return response;
+                        }
+                    });
                 }
 
                 // 返回正常回應

@@ -154,6 +154,16 @@ class Handler(base.BaseHandler):
         處理端點：
             POST /api/v1/jobs
         """
+        # 確保 self.json_args 不是 None
+        if not hasattr(self, "json_args") or self.json_args is None:
+            try:
+                self.json_args = json.loads(self.request.body.decode())
+            except json.JSONDecodeError as e:
+                # 如果 JSON 解析錯誤，返回明確的錯誤信息
+                self.set_status(400)
+                self.finish({"error": f"Invalid JSON format: {str(e)}"})
+                return
+
         self._validate_post_data()
 
         # 確保 json_args 中包含當前用戶名稱
@@ -338,7 +348,7 @@ class Handler(base.BaseHandler):
                     parsed_new_pub_args = json.loads(new_pub_args)
                 except json.JSONDecodeError:
                     self.set_status(400)
-                    raise ValueError("Invalid JSON format for Arguments")
+                    raise ValueError("Invalid JSON format")
             else:
                 # 如果格式不對，也視為未提供或無效
                 pass
@@ -447,7 +457,7 @@ class Handler(base.BaseHandler):
 
     @tornado.web.removeslash
     @tornado.gen.coroutine
-    def put(self, job_id):
+    def put(self, job_id=None):
         """修改一個任務。
 
         處理端點：
@@ -455,85 +465,117 @@ class Handler(base.BaseHandler):
 
         :param str job_id: 任務 ID
         """
-        yield self.modify_job_yield(job_id)
+        # 檢查 job_id 是否為 None
+        if job_id is None:
+            self.set_status(400)
+            self.finish({"error": "Missing job_id. Use PUT /api/v1/jobs/{job_id} to modify a job."})
+            return
+
+        # 確保 self.json_args 不是 None
+        if not hasattr(self, "json_args") or self.json_args is None:
+            try:
+                self.json_args = json.loads(self.request.body.decode())
+            except json.JSONDecodeError as e:
+                # 如果 JSON 解析錯誤，返回明確的錯誤信息
+                self.set_status(400)
+                self.finish({"error": f"Invalid JSON format: {str(e)}"})
+                return
+
+        try:
+            yield self.modify_job_yield(job_id)
+        except ValueError as e:
+            # ValueError 通常由 _modify_job 拋出，內部處理已設置狀態碼
+            self.finish({"error": str(e)})
+        except Exception as e:
+            logger.exception(f"修改任務 {job_id} 時發生未預期的錯誤")
+            self.set_status(500)
+            self.finish({"error": f"Internal server error: {str(e)}"})
 
     @tornado.web.removeslash
-    def patch(self, job_id):
+    def patch(self, job_id=None):
         """暫停一個任務。
-
-        pause_job() 是非阻塞操作，但稽核日誌是阻塞操作。
 
         處理端點：
             PATCH /api/v1/jobs/{job_id}
 
         :param str job_id: 任務 ID
         """
+        # 檢查 job_id 是否為 None
+        if job_id is None:
+            self.set_status(400)
+            self.finish({"error": "Missing job_id. Use PATCH /api/v1/jobs/{job_id} to pause a job."})
+            return
+
         try:
-            # 檢查任務是否存在
-            job = self._get_job(job_id)
-            if isinstance(job, dict) and "error" in job:
-                self.set_status(400)
-                self.write(job)
+            # 先檢查任務是否存在
+            job = self.scheduler_manager.get_job(job_id)
+            if not job:
+                self.set_status(404)
+                self.finish({"error": f"Job not found: {job_id}"})
                 return
 
-            # 嘗試暫停任務
+            job_info = self._build_job_dict(job)
+
             self.scheduler_manager.pause_job(job_id)
 
-            # 記錄稽核日誌
+            # 只有在成功暫停後才記錄稽核日誌
             self.datastore.add_audit_log(
                 job_id,
-                job["name"],
+                job_info["name"],
                 constants.AUDIT_LOG_PAUSED,
                 user=self.username,
-                category_id=job.get("category_id", 0),  # 使用 .get 提供預設值
+                category_id=job_info.get("category_id", 0),
             )
 
-            response = {"job_id": job_id}
-            self.set_status(200)
-            self.write(response)
-
+            # logger.info(f"暫停任務 {job_id}: {job.name}")
+            self.finish({"job_id": job_id})
         except Exception as e:
+            logger.exception(f"暫停任務 {job_id} 時發生錯誤")
             self.set_status(500)
-            self.write({"error": f"暫停任務失敗：{str(e)}"})
+            self.finish({"error": f"Failed to pause job: {str(e)}"})
 
     @tornado.web.removeslash
-    def options(self, job_id):
+    def options(self, job_id=None):
         """恢復一個任務。
-
-        resume_job() 是非阻塞操作，但稽核日誌是阻塞操作。
 
         處理端點：
             OPTIONS /api/v1/jobs/{job_id}
 
         :param str job_id: 任務 ID
         """
+        # 檢查 job_id 是否為 None
+        if job_id is None:
+            self.set_status(400)
+            self.finish({"error": "Missing job_id. Use OPTIONS /api/v1/jobs/{job_id} to resume a job."})
+            return
+
         try:
-            # 檢查任務是否存在
-            job = self._get_job(job_id)
-            if isinstance(job, dict) and "error" in job:
-                self.set_status(400)
-                self.write(job)
+            # 先檢查任務是否存在
+            job = self.scheduler_manager.get_job(job_id)
+            if not job:
+                self.set_status(404)
+                self.finish({"error": f"Job not found: {job_id}"})
                 return
 
-            # 嘗試恢復任務
+            job_info = self._build_job_dict(job)
+
             self.scheduler_manager.resume_job(job_id)
 
-            # 記錄稽核日誌
+            # 只有在成功恢復後才記錄稽核日誌
             self.datastore.add_audit_log(
                 job_id,
-                job["name"],
+                job_info["name"],
                 constants.AUDIT_LOG_RESUMED,
                 user=self.username,
-                category_id=job.get("category_id", 0),  # 使用 .get 提供預設值
+                category_id=job_info.get("category_id", 0),
             )
 
-            response = {"job_id": job_id}
-            self.set_status(200)
-            self.write(response)
-
+            # logger.info(f"恢復任務 {job_id}: {job.name}")
+            self.finish({"job_id": job_id})
         except Exception as e:
+            logger.exception(f"恢復任務 {job_id} 時發生錯誤")
             self.set_status(500)
-            self.write({"error": f"恢復任務失敗：{str(e)}"})
+            self.finish({"error": f"Failed to resume job: {str(e)}"})
 
     def _validate_post_data(self):
         """Validates POST data for adding a job.
@@ -544,6 +586,10 @@ class Handler(base.BaseHandler):
 
         :raises: HTTPError(400: Bad arguments).
         """
+        # 檢查 self.json_args 是否為 None
+        if self.json_args is None:
+            raise tornado.web.HTTPError(400, reason="Invalid or missing JSON data in request body")
+
         all_required_fields = ["name", "job_class_string"]
         for field in all_required_fields:
             if field not in self.json_args:
