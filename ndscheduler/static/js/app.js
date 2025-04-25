@@ -12,6 +12,8 @@ require.config({
     'bootstrap-switch': 'vendor/bootstrap-switch',
 
     'auth': 'auth',
+    'ajax-interceptor': 'ajax-interceptor',
+    'fetch-interceptor': 'fetch-interceptor',
     'page-manager': 'page-manager',
 
     'jobs-view': 'views/jobs/jobs-view',
@@ -52,6 +54,9 @@ require([
   'executions-collection',
   'logs-collection',
   'page-manager',
+  'ajax-interceptor',
+  'fetch-interceptor',
+  'auth',
   'backbone'], function (
     JobsView,
     ExecutionsView,
@@ -61,13 +66,53 @@ require([
     JobsCollection,
     ExecutionsCollection,
     LogsCollection,
-    pageManager) {
+    pageManager,
+    ajaxInterceptor,
+    fetchInterceptor,
+    auth) {
   'use strict';
 
   // 確保頁面加載完成後才初始化
   $(document).ready(function () {
     console.log("DOM ready, initializing application...");
 
+    // 主動檢查用戶是否登入
+    if (window.location.pathname !== '/login') {
+      console.log("檢查用戶身份驗證狀態...");
+
+      // 從 cookie 中獲取 token
+      var token = auth.getCookie('token');
+
+      if (!token) {
+        console.log("未找到 token，重定向到登錄頁面");
+        window.location.href = '/login';
+        return;
+      }
+
+      // 向服務器驗證 token 有效性
+      $.ajax({
+        url: '/api/v1/auth/verify',
+        method: 'GET',
+        success: function (response) {
+          console.log("身份驗證成功，繼續加載應用");
+          initializeApp();
+        },
+        error: function (xhr, status, error) {
+          console.error("身份驗證失敗:", status, error);
+          if (xhr.status === 401) {
+            console.log("Token 無效，重定向到登錄頁面");
+            auth.deleteCookie('token');
+            window.location.href = '/login';
+          }
+        }
+      });
+    } else {
+      console.log("當前在登錄頁面，跳過身份驗證檢查");
+    }
+  });
+
+  // 應用初始化函數
+  function initializeApp() {
     // 確保 bootstrap-switch 已加載
     if (typeof $.fn.bootstrapSwitch === 'undefined') {
       console.error('bootstrap-switch not loaded properly');
@@ -177,5 +222,5 @@ require([
     });
 
     Backbone.history.start();
-  });
+  }
 });

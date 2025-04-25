@@ -40,9 +40,15 @@ class BaseHandler(tornado.web.RequestHandler):
         # 檢查用戶是否已登入
         user = self.get_current_user()
         if not user:
-            self.set_status(401)
-            self.write({"error": {"code": 401, "message": "Unauthorized"}})
-            self.finish()
+            # 判斷是 API 請求還是網頁請求
+            if self.request.headers.get("Accept") == "application/json" or self.request.path.startswith("/api/"):
+                # API 請求返回 401 狀態碼
+                self.set_status(401)
+                self.write({"error": {"code": 401, "message": "Unauthorized"}})
+                self.finish()
+            else:
+                # 網頁請求直接重定向到登入頁面
+                self.redirect("/login")
             return
 
         try:

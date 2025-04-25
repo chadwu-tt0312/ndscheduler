@@ -320,6 +320,26 @@ URL 輸入 "localhost:8888/login" 但是卻跳到 jobs 頁面。此時 scheduler
 
 ---
 
+## q-28
+
+當預設URL 回應 401 時，應該自動跳轉 http://localhost:8888/login 頁面
+
+---
+
+## answer-28
+
+2025-04-25_00-09-自動跳轉到登錄頁面設定.md
+
+---
+
+## q-9
+
+---
+
+## answer-9
+
+---
+
 ## q-9
 
 ---

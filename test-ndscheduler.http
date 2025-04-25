@@ -1,0 +1,19 @@
+### ndscheduler (login)
+curl -X POST http://localhost:8888/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "username": "user",
+    "password": "password"
+  }'
+
+### ndscheduler (add job)
+@LOGIN_TOKEN = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJ1c2VybmFtZSI6InVzZXIiLCJjYXRlZ29yeV9pZCI6MCwiaXNfYWRtaW4iOnRydWUsImlzX3Blcm1pc3Npb24iOnRydWUsImV4cCI6MTc0NTQ4NDY0OX0.xyfMUAk1uyaeKGikuHKN7bgGcmaxbzA4Jzn6SyCBXKk
+curl -X POST http://localhost:8888/api/v1/jobs \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer {{LOGIN_TOKEN}}' \
+  -d '{
+    "job_class_string": "simple_scheduler.jobs.sample_job.AwesomeJob",
+    "name": "API 新增的任務",
+    "pub_args": ["API參數1", "API參數2"],
+    "minute": "*/5"
+  }'
