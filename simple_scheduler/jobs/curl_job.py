@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 
 
 class CurlJob(job.JobBase):
-    TIMEOUT = 10
+    # TIMEOUT = 10
+    TIMEOUT = 300  # 60 * 5
 
     @classmethod
     def meta_info(cls):
@@ -25,7 +26,7 @@ class CurlJob(job.JobBase):
                 # Request Type
                 {
                     "type": "string",
-                    "description": "What request type do you want? " "(currently supported: GET/DELETE)",
+                    "description": "What request type do you want? (currently supported: GET/DELETE)",
                 },
             ],
             "example_arguments": (

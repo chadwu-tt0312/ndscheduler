@@ -8,12 +8,12 @@
 5. simple_scheduler/requirements.txt fix (mark git)
 6. simple_scheduler/scheduler.py fix (Fix for Tornado+asyncio on Windows)
 7. add requirements.txt
-   - tornado>=6.4.2
-   - SQLAlchemy>=2.0.39
-   - apscheduler>=3.11.0
-   - future>=0.18.3
-   - python-dateutil>=2.8.2
-   - pytz>=2025.2
+    - tornado>=6.4.2
+    - SQLAlchemy>=2.0.39
+    - apscheduler>=3.11.0
+    - future>=0.18.3
+    - python-dateutil>=2.8.2
+    - pytz>=2025.2
 8. uv pip install -r requirements.txt
 9. (X)uv pip install setuptools
 10. (X)uv run setup.py install
@@ -38,7 +38,7 @@
 6. uv pip install ldap/python_ldap-3.4.4-cp311-cp311-win_amd64.whl
 7. fix makefile/setup.cfg/setup.py
 8. add test_requirements.txt
-   - pytz>=2025.2
+    - pytz>=2025.2
 9. uv pip install -r test_requirements.txt
 10. make install
 11. make test
@@ -78,9 +78,9 @@
     - uv run -m simple_scheduler.scheduler
     - 設定 PYTHONPATH (export PYTHONPATH=.)
 2. DB tablename
-   - DEFAULT_JOBS_TABLENAME = 'scheduler_jobs'
-   - DEFAULT_EXECUTIONS_TABLENAME = 'scheduler_execution'
-   - DEFAULT_AUDIT_LOGS_TABLENAME = 'scheduler_jobauditlog'
+    - DEFAULT_JOBS_TABLENAME = 'scheduler_jobs'
+    - DEFAULT_EXECUTIONS_TABLENAME = 'scheduler_execution'
+    - DEFAULT_AUDIT_LOGS_TABLENAME = 'scheduler_jobauditlog'
 3. AUDIT_LOGS 只儲存 job 變更紀錄，EXECUTIONS 只儲存 job 執行紀錄。
 4. DEFAULT_TIMEZONE = 'UTC'
 5. NDSCHEDULER_SETTINGS_MODULE=simple_scheduler.settings 用來決定要載入哪個設定檔。當這個環境變數沒有設定時，系統會使用預設設定（default_settings.py），而不是我們的自定義設定（simple_scheduler/settings.py）。在預設設定中，HTTP_PORT 被設定為 7777。
